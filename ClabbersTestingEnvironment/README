@@ -1,0 +1,134 @@
+README FOR USING THE CLABBERS TESTING ENVIRONMENT
+
+
+============== SETTING UP QUACKLE ====================
+
+This is a one-time process, which is needed to get and set up the Quackle dependencies.
+This is needed only if testing needs to be done against the Quackle agent.
+
+1. In order to use quackle as agent, download or clone quackle from "https://github.com/quackle/quackle". You can clone the repo using following command:
+$> cd
+$> mkdir Quackle
+$> cd Quackle
+$> git clone https://github.com/quackle/quackle.git
+
+2. Quackle is built and tested with the Qt 4.8. It does not presently build against Qt 5. For linux, use qt4-default package from software center.  
+$> sudo apt-get install qt4-default
+
+3. Replace test directory in Quackle with given test directory.
+$> rm -fr ~/Quackle/test
+$> cp -R [LOCATION OF THIS README FILE]/test ~/Quackle
+
+4. Build Quackle 
+$> cd ~/Quackle
+$> qmake quackle.pro && make
+#Build quackleio
+$> cd quackleio
+$> qmake quackleio.pro && make;cd ..
+#Build quacker
+$> cd quacker
+$> qmake quacker.pro && make;cd ..
+#Finally, build test image
+$>cd test; qmake test.pro && make; 
+
+# The binary will build as 'test'. It will be found in th ~/Quackle/test/ directory. This location will have to be provided in setupconfig.py
+
+
+
+
+============ CONFIGURING THE GAME ENVIRONMENT =============
+
+Although config.cfg contains many customisable parameters, it is suggested the first configuration be done using setupconfig.py.
+$> python setupconfig.py
+
+The user in prompted to fill in only the necessary information to set up config.cfg. Advanced settings can be changed directly in the file. The meaning of each parameter can be looked up in default.cfg.
+Note that changing parameters such as board size, tile distribution, etc. may result in the agents performing badly, since these have been trained on the standard Scrabble board.
+
+
+
+
+==============  AGENTS ================
+
+If setupconfig.py was used, the agents are already set up. You can also manually change the [Agents] Section of the file, and specify which agents to play against each other.
+The agents included (and the corresponding commands) in this bundle are:
+
+1. Quackle 
+The open-source Qackle agent. Used as a benchmark, and a training tool
+
+2. Greedy
+Greedy agent. Always picks the highest scoring move.
+
+3. Clabbers1
+Hand-crafted version using decision rules and heuristics.
+
+4. Clabbers2
+Learning agent that was trained against Quackle using a linear model
+
+5. Human
+Play against one of the agents using a command line interface.
+(For this agent, it is recommended to set the agent's showBoardAtEveryMove parameter as True in the config file. For the format of moves, refer to the report)
+
+
+
+
+==============  RUNNING A SINGLE GAME ===============
+
+Navigate to the directory 'interface' located in this directory, and run UniversalInterface.py as:
+$> cd interface
+$> python UniversalInterface.py 1
+
+The number 1 can be replaced by and other seed number to randomize the interface.
+(Note that this does not control the randomness, if any, in the agent programs themselves)
+
+It is suggested to set the showBoardAtEveryMove and/or showBoardAtEnd parameters to True in the config file to follow the game.
+
+
+
+
+============ RUNNING A TEST WITH MULTIPLE GAMES =============
+
+For running multiple tests of one agent against another, use the shell script interface/runmany.py
+This is a small shell script, and can be run as:
+
+Navigate to the interface directory
+$> cd interface
+$> sh runmany.sh [number_of_games_to_run] [file_to_redirect_output_to]
+
+This will direct all the output to the file supplied. Note that this APPENDS to the file, so you may or may not want to delete any existing contents of the file, depending on the use case.
+
+To extract the score-lines from each game, use the following (AFTER having run runmany.sh)
+Navigate to the interface directory
+$> cd interface
+$> sh scorelines.sh [file_with runnmany.sh_output] 
+
+The names are as they were specified in the config for the agents. Each line looks like:
+AGENTNAME: REMAININGRACK | FINALSCORE RESULT
+E.g.
+Greedy: EEG | 379 LOSES
+
+To extract the win-loss count summary directly from each game, and display totals, use the following (AFTER having run runmany.sh)
+Navigate to the interface directory
+$> cd interface
+$> sh winloss.sh [file_with runnmany.sh_output]
+
+
+
+
+
+=============== RUNNING THE LEARNING INTERFACE ==================
+The agent Clabbers2 is developed using a learning technique against Quackle. The functionality for the learning is supplied in the agent's directory
+
+$> cd agents/Clabbers2
+
+The agent is completely contained in the program clabbers.py and the weights file weights.txt. All other files are used in the training pipeline. 
+
+trainer.sh executes the required number of iterations of updating weights. For this, the config file must be set to run Clabbers2 as one agent, and an agent against which the training occurs (preferably Quackle)
+
+$> sh trainer.sh [desired_number_of_iterations]
+After evey iteration, the weights file is automatically updated, using a learning rate parameter of 0.1
+
+To simply run the current trained agent Clabbers2 agains an opponent, follow the default technique of using setupconfig.py, and specifying Clabbers2 as one of the agents. trainer.sh is not needed for this
+
+
+   ********************************
+

@@ -1,0 +1,4 @@
+The agent is completely defined by clabbers.py and the weights file weights.txt. All other files are used in the training pipeline. 
+
+trainer.sh executes the required number of iterations of updating weights. For this, the config file must be set to run Clabbers2 as one agent, and an agent against which the training occurs (preferably Quackle)
+
