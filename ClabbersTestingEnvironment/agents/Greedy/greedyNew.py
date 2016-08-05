@@ -552,6 +552,7 @@ sock.listen(100)
 conn, addr = sock.accept()
 print ('connected with' + addr[0] + ":" + str(addr[1]) )
 
+message = json.loads('{"status":{"moverequired":"blah"}}')
 while True:
 
     startime = 0
@@ -562,11 +563,11 @@ while True:
 
     # Receive data from the server and begin compute
     received = conn.recv(1024)
-
-    print("Received: " + received)
+    print(message['status']['moverequired'])
+    print("Received: [" + received + "]")
     message = json.loads(received)   
 
-    print(HOST + " and " + str(PORT) + "\n" + str(message))
+    #print(HOST + " and " + str(PORT) + "\n" + str(message))
 
 
     #print('***********')
@@ -574,8 +575,9 @@ while True:
 
     ###########
     ## PARSE MESSAGE
-    #if message['status']['moverequired'] == False:
-    #    sys.exit() 
+    if message['status']['moverequired'] == False:
+        print("MOVENOTREQUIRED")
+        continue
     boardstring = message["board"]
     rack = ''.join(message["rack"])
     numblanks = sum(1 for x in rack if x=='?')
@@ -610,7 +612,7 @@ while True:
 
     endtime = time.time()
     timeconsumed = endtime - starttime
-    print ("\n\n Time consumed was " +str(timeconsumed))
+    print ("\nTime consumed was " +str(timeconsumed))
     allmoveslist = hpossiblemoves + vpossiblemoves
     #print('Total number of possible moves: ', len(allmoveslist))
 
@@ -637,7 +639,7 @@ while True:
     	gcgmove = "pass"
 
     	
-    print("Move is " + gcgmove)# + ' ' + str(fullmove[6]))
+    print("Sent: " + gcgmove)# + ' ' + str(fullmove[6]))
     conn.sendall(gcgmove)
     #sock.close()
 
