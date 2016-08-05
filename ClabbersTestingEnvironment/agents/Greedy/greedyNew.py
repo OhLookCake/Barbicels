@@ -565,7 +565,6 @@ while True:
 
     print("Received: " + received)
     message = json.loads(received)   
-    starttime = time.time()
 
     print(HOST + " and " + str(PORT) + "\n" + str(message))
 
@@ -592,6 +591,7 @@ while True:
         alphasetdict = alphasetdict1
     else:
         alphasetdict = alphasetdict2
+    starttime = time.time()
 
     hpossiblemoves = genAllWords(board, False, alphasetdict)
     #print(hpossiblemoves[0:9])
@@ -608,6 +608,9 @@ while True:
     else:
         vpossiblemoves = []
 
+    endtime = time.time()
+    timeconsumed = endtime - starttime
+    print ("\n\n Time consumed was " +str(timeconsumed))
     allmoveslist = hpossiblemoves + vpossiblemoves
     #print('Total number of possible moves: ', len(allmoveslist))
 
@@ -636,10 +639,7 @@ while True:
     	
     print("Move is " + gcgmove)# + ' ' + str(fullmove[6]))
     conn.sendall(gcgmove)
-    endtime = time.time()
     #sock.close()
 
     
 
-    timeconsumed = endtime - starttime
-    print ("\n\n Time consumed was " +timeconsumed)

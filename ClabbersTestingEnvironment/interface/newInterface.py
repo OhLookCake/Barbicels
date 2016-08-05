@@ -42,6 +42,7 @@ class Playerinfo:
 	def __init__(self, host, port, name, score, rack, timeleft):
 		self.host = host
 		self.port = port
+		self.sock = None
 		self.name = name
 		self.score = score
 		self.rack = rack
@@ -234,7 +235,7 @@ class Game:
 		wordlist = {w.replace("\n", "").upper():1 for w in fh.readlines()}
 		self.wordlist = wordlist
 
-		self.activeplayer = 1 # just a number. 1 or 2. #TODO: Read from config or randomly assign
+		self.activeplayer = 1#startplayer
 		self.gameover = False
 
 
@@ -347,7 +348,7 @@ class Game:
 				return (move, parseerror)
 			else:
 				parseerror = True
-				#TODO: throw error
+				throwerror(11)
 				return (None, parseerror)
 		elif len(movesplit) == 2:
 			#not pass
@@ -360,7 +361,7 @@ class Game:
 				#regular
 				move.category = 'R'
 		else:
-			#TODO: throw error.
+			throwerror(11)
 			return (None, parseerror)
 
 
@@ -679,14 +680,14 @@ class Game:
 
 		return (totalscore)
 
-	def fullmove(self, sock, showboard=False):
+	def fullmove(self, showboard=False):
 		
 		#send board, current scores, recieve move, validate move
 		okmove = False
 		errorcode = 0 # Should this be errcode?
 		timeconsumed = 0
 		while not okmove:
-			textmove, timethisiter = self.getmove(self.activeplayer, errorcode, True, sock)
+			textmove, timethisiter = self.getmove(self.activeplayer, errorcode, True)
 			timeconsumed+=timethisiter
 
 			# gets a text move: 1B BOt | exch BBR | pass
@@ -800,11 +801,13 @@ class Game:
 			if self.players[self.activeplayer].timeleft < 0:
 				minutesovertime = -(floor(self.players[self.activeplayer].timeleft / 60))
 				self.players[3 - self.activeplayer].score+=(int(minutesovertime) * 10)
+			
 
+			self.getmove(self.activeplayer, 0, False)
+			self.getmove(3-self.activeplayer, 0, False)
+			
 			return True #gameoverflag
 
-			#TODO: Send ACK to non-active player
-		#TODO: send ACK to active player
 		return False #gameoverflag
 
 
@@ -817,23 +820,23 @@ class Game:
 			PORT = self.players[player].port
 
 			# Create a socket (SOCK_STREAM means a TCP socket)
-			sock[player] = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			self.players[player].sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			# Connect to server and send data
 			print(HOST + " and " + str(PORT) + "\n" )
-			sock[player].connect((HOST, int(PORT)) )
+			self.players[player].sock.connect((HOST, int(PORT)) )
 		while not self.gameover:
 			self.showall()
-			self.gameover = self.fullmove(sock[self.activeplayer])
+			self.gameover = self.fullmove()
 
 			self.activeplayer = 3 - self.activeplayer
 
 		print('')
 		self.showallgameover()
 		for player in [1,2]:
-			sock[player].close()
+			self.players[player].sock.close()
 
 
-	def getmove(self, player, errcode, moverequired,sock):
+	def getmove(self, player, errcode, moverequired):
 		"""
 		moverequired = True
 			implies it is the agent's move to play and their clock is running. A response is expected.
@@ -898,11 +901,11 @@ class Game:
 			#print(HOST + " and " + str(PORT) + "\n" + message)
 			#sock.connect((HOST, int(PORT)) )
 			
-			sock.sendall(message + "\n")
+			self.players[player].sock.sendall(message + "\n")
 			starttime = time.time()
 
 			# Receive data from the server and shut down
-			received = sock.recv(1024)
+			received = self.players[player].sock.recv(1024)
 			endtime = time.time()
 			#sock.close()
 
@@ -916,20 +919,8 @@ class Game:
 			print("Message to ", self.players[player].name)
 			print(message)
 
-			HOST = self.players[player].host
-			PORT = self.players[player].port
 
-			# Create a socket (SOCK_STREAM means a TCP socket)
-			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-			# Connect to server and send data
-			sock.connect((HOST, PORT))
-			sock.sendall(message + "\n")
-			sock.close()
-
-			#if showMessages[player.id]=='True':
-			print("Message to ", player.name)
-			print(message)
+			self.players[player].sock.sendall(message + "\n")
 
 			return 0
 
