@@ -563,21 +563,20 @@ while True:
 
     # Receive data from the server and begin compute
     received = conn.recv(1024)
-    print(message['status']['moverequired'])
-    print("Received: [" + received + "]")
+
+    print("Received: <" + received + ">")
+    if received == None or received == "":
+        break
+
     message = json.loads(received)   
 
-    #print(HOST + " and " + str(PORT) + "\n" + str(message))
-
-
-    #print('***********')
-
+    
 
     ###########
     ## PARSE MESSAGE
     if message['status']['moverequired'] == False:
-        print("MOVENOTREQUIRED")
         continue
+
     boardstring = message["board"]
     rack = ''.join(message["rack"])
     numblanks = sum(1 for x in rack if x=='?')
@@ -641,7 +640,8 @@ while True:
     	
     print("Sent: " + gcgmove)# + ' ' + str(fullmove[6]))
     conn.sendall(gcgmove)
-    #sock.close()
+    
+sock.close()
 
     
 

@@ -36,13 +36,11 @@ def throwerror(errcode):
 		print("Preceding or trailing tiles on board")
 
 
-
-
 class Playerinfo:
-	def __init__(self, host, port, name, score, rack, timeleft):
+	def __init__(self, host, port, sock, name, score, rack, timeleft):
 		self.host = host
 		self.port = port
-		self.sock = None
+		self.sock = sock
 		self.name = name
 		self.score = score
 		self.rack = rack
@@ -146,7 +144,7 @@ class Bag:
 
 class Game:
 	
-	def __init__(self):
+	def __init__(self, sock1, sock2):
 
 
 		#### INITIALIZE #####
@@ -208,8 +206,8 @@ class Game:
 		rack = [None, None, None]
 
 		self.players = [None, None, None]
-		self.players[1] = Playerinfo(hostPlayer[1], portPlayer[1], playernames[1], score[1], rack[1], secondsremaining[1])
-		self.players[2] = Playerinfo(hostPlayer[2], portPlayer[2], playernames[2], score[2], rack[2], secondsremaining[2])
+		self.players[1] = Playerinfo(hostPlayer[1], portPlayer[1], sock1, playernames[1], score[1], rack[1], secondsremaining[1])
+		self.players[2] = Playerinfo(hostPlayer[2], portPlayer[2], sock2, playernames[2], score[2], rack[2], secondsremaining[2])
 
 
 		#TODO: parse and use these.
@@ -811,16 +809,6 @@ class Game:
 	def play(self):
 		##### PROCESS ######
 		# Perform connections
-		sock = [0,0,0]
-		for player in [1,2]:
-			HOST = self.players[player].host
-			PORT = self.players[player].port
-
-			# Create a socket (SOCK_STREAM means a TCP socket)
-			self.players[player].sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			# Connect to server and send data
-			print(HOST + " and " + str(PORT) + "\n" )
-			self.players[player].sock.connect((HOST, int(PORT)) )
 		while not self.gameover:
 			self.showall()
 			self.gameover = self.fullmove()
@@ -885,26 +873,15 @@ class Game:
 			print(message)
 
 
-			#HOST = self.players[player].host
-			#PORT = self.players[player].port
-
-			# Create a socket (SOCK_STREAM means a TCP socket)
-			#sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
 			startime = 0
 			endtime = 0
-
-			# Connect to server and send data
-			#print(HOST + " and " + str(PORT) + "\n" + message)
-			#sock.connect((HOST, int(PORT)) )
-			
+	
 			self.players[player].sock.sendall(message + "\n")
 			starttime = time.time()
 
 			# Receive data from the server and shut down
 			received = self.players[player].sock.recv(1024)
 			endtime = time.time()
-			#sock.close()
 
 			print("Received: " + received)
 
@@ -926,10 +903,36 @@ class Game:
 
 
 if __name__ == "__main__":
-	mygame = Game()
-	mygame.play()
 
-	time.sleep(10)
+
+	numiters = int(sys.argv[1])
+	#Read config file
+	config = ConfigParser.RawConfigParser()
+	config.read('../config.cfg')
+
+	p1host = config.get('Agents','Agent1Host')
+	p1port = int(config.get('Agents','Agent1Port'))
+
+	sock1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	sock1.connect((p1host, p1port))
+	print("Socket1: " + p1host + ":" + str(p1port) + "\n" )
+
+	p2host = config.get('Agents','Agent2Host')
+	p2port = int(config.get('Agents','Agent2Port'))
+	sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+	sock2.connect((p2host, p2port))
+	print("Socket2: " + p2host + ":" + str(p2port) + "\n")
+
+	for i in range(numiters):
+		mygame = Game(sock1, sock2)
+		mygame.play()
+		print("*" * 50)
+
+	sock1.close()
+	sock2.close()
+
+
+	
 
 
 
