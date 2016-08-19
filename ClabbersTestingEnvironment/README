@@ -12,7 +12,7 @@ $> mkdir Quackle
 $> cd Quackle
 $> git clone https://github.com/quackle/quackle.git
 
-2. Quackle is built and tested with the Qt 4.8. It does not presently build against Qt 5. For linux, use qt4-default package from software center.  
+2. Quackle is built and tested with the Qt 4.8. It does not presently build against Qt 5. For linux, use qt4-default package from software center.
 $> sudo apt-get install qt4-default
 
 3. Replace test directory in Quackle with given test directory.

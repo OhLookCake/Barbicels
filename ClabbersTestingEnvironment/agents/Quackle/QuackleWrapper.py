@@ -3,6 +3,7 @@ import re
 import sys
 import ConfigParser
 import json
+import socket
 
 #This file acts as a wrapper around Quackle, and translates between the interface and Quackle,
 # in both directions
@@ -24,6 +25,7 @@ def quackle(gameFile,rack):
     output = commands.getoutput(command)
     scoreoutput = re.sub('^.*\=\ ','',output)
     output = re.sub('\(.*','',output)
+    print ("output is "+ output)
 
     if(output[0]=='-' and output[1]==' '):
         return 'pass'
@@ -42,9 +44,31 @@ if __name__ == '__main__':
     # out = gameFromGcg('logan.gcg')
     config = ConfigParser.RawConfigParser()
     config.read(sys.argv[1])
+    playerInd = sys.argv[2]
     gamefile = config.get('Meta', 'gamefile')
     quacklePath = config.get('Agents', 'quacklepath')
-    msg = json.loads(sys.argv[2])
-    rack = ''.join(msg["rack"])
-    out = quackle(gamefile, rack)
-    print(out)
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    HOST = config.get('Agents', 'Agent'+str(playerInd)+'Host')
+    PORT = int(config.get('Agents', 'Agent'+str(playerInd)+'Port'))
+    # Connect to server and send data
+    sock.bind((HOST, PORT))
+    print(HOST + " and " + str(PORT) + "\n")
+    sock.listen(100)
+    conn, addr = sock.accept()
+    print ('connected with' + addr[0] + ":" + str(addr[1]) )
+
+    while True:
+        # Receive data from the server and begin compute
+        received = conn.recv(1024)
+        print("Received: <" + received + ">")
+        if received == None or received == "":
+            break
+        message = json.loads(received)   
+        ###########
+        ## PARSE MESSAGE
+        if message['status']['moverequired'] == False:
+            continue
+        rack = ''.join(message["rack"])
+        gcgmove = quackle(gamefile, rack)
+        conn.sendall(gcgmove)

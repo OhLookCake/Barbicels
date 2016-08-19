@@ -856,7 +856,7 @@ class Game:
 		if moverequired:
 				  
 			#if showBoardAtEveryMove[player.playerid]=='True':
-			self.board.showboard()
+			#self.board.showboard()
 			print("Rack: " + ''.join(self.players[player].rack))
 			for p in [1,2]:
 				print(self.players[p].name, end='')

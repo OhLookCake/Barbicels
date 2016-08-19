@@ -12,8 +12,8 @@ import time
 import sys
 import os
 import csv
-
-
+import socket
+#TODO incorporate learning for clabbers
 ### READ MESSAGE #####
 
 start_time = time.time()
@@ -23,101 +23,8 @@ expecting argv to be of length 3. The argument (argv[1]) is the config file, (ar
 """
 
 configfilename = sys.argv[1]
-message = json.loads(sys.argv[2])
+#message = json.loads(sys.argv[2])
 
-if message['status']['moverequired'] == False:
-    sys.exit() #In the future, this may be used for some pre-processing
-    
-
-#### INITIALIZE #####
-
-#Read config file
-config = ConfigParser.RawConfigParser()
-config.read(configfilename)
-
-numrows = int(config.get('Board', 'numrows'))
-numcols = int(config.get('Board', 'numcols'))
-
-lettermultiplierstring = config.get('Board', 'lettermultiplier').split(',')
-lettermultiplier = [[int(k) for k in lettermultiplierstring[i:i+numcols]] for i in range(0, numrows*numcols,numcols)]
-
-wordmultiplierstring = config.get('Board', 'wordmultiplier').split(',')
-wordmultiplier = [[int(k) for k in wordmultiplierstring[i:i+numcols]] for i in range(0, numrows*numcols,numcols)]
-
-tilepoints = {L:int(config.get('TilePoints', L)) for L in string.ascii_uppercase+'?'}
-tilepoints.update({L:int(config.get('TilePoints', '?')) for L in string.ascii_lowercase}) # basically, also add equivalent of blank points for lower case letters
-
-bagdict = {L:int(config.get('TileDistribution', L)) for L in string.ascii_uppercase+'?'}
-bag = list(''.join([L*bagdict[L] for L in string.ascii_uppercase+'?']))
-
-dictionarieslocation = config.get('Meta', 'dictionarieslocation')
-
-#Read weight file
-currentdir = os.path.dirname(os.path.abspath(__file__))
-fh = open(currentdir + '/weights.txt', "r")
-weightstring = fh.readlines()[0].replace("\n", "")
-featureweights = [float(w) for w in weightstring.split(',')]
-fh.close()
-
-## PARSE MESSAGE
-
-boardstring = message["board"]
-rack = ''.join(message["rack"])
-numblanks = sum(1 for x in rack if x=='?')
-
-## Initialize constants
-AZ = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-board_anchorpoints = [[False]*15]*15
-board_anchorconstraints = [[AZ]*15]*15
-
-## Read optimized text files for dictionaries
-#This is faster than reading a pickled object (!)
-
-
-##lwordlists    
-fh = open(dictionarieslocation + "/lwordlists.txt", "r")
-lines = [w.replace("\n", "") for w in fh.readlines()]
-lwordlists = {}
-for line in lines:
-    linelist = line.split(" ")
-    k = int(linelist[0])
-    d = {}
-    for w in linelist[1:]:
-        d[w] = 1
-    lwordlists[k] = d
-fh.close()
-#print('lwordlists', time.time() - start_time)   
-
-###alphasetdict
-alphasetdict_0B = {}
-fh = open(dictionarieslocation + "/alphasetdict.txt", "r")
-lines = [w.replace("\n", "") for w in fh.readlines()]
-for line in lines:
-    l = line.split(" ")
-    k = l[0]
-    alphasetdict_0B[k] = l[1:]
-fh.close()
-
-alphasetdict_1B = {}        
-fh = open(dictionarieslocation + "/alphasetdict1B.txt", "r")
-lines = [w.replace("\n", "") for w in fh.readlines()]
-alphasetdict_1B = {}
-for line in lines:
-    l = line.split(" ")
-    k = l[0]
-    alphasetdict_1B[k] = l[1:]
-fh.close()
-
-if numblanks == 0:
-    alphasetdict = alphasetdict_0B
-elif numblanks == 1:
-    alphasetdict = alphasetdict_1B 
-else:
-    alphasetdict = alphasetdict_1B 
-
-#print('dict objects', time.time() - start_time)   
-
-board = [list(boardstring)[i:i+numcols] for i in range(0, numrows*numcols,numcols)]
 
 
 def showboard(board):
@@ -676,78 +583,212 @@ def makefeatures_stateaction(board, rack, hashmove, movescore, featurevec1):
 
 #showboard(board)
 
-#print('***********')
-hpossiblemoves = genAllWords(board, False)
-#print(hpossiblemoves[0:9])
-#print('***********')
+#### INITIALIZE #####
 
-numoccupied = sum(x!='.' for row in board for x in row)
+#Read config file
+config = ConfigParser.RawConfigParser()
+config.read(configfilename)
 
-#If it is the first move of the game, the symmetry makes it necessary to consider only one direction
-if numoccupied > 0:
-    flippedboard = map(list, zip(*board))
-    vpossiblemoves = genAllWords(flippedboard, True) #Warning: Stuff will be overwritten here! We don't care, but beware!
-#    print(vpossiblemoves[0:9])
-#    print('***********')
-else:
-    vpossiblemoves = []
+numrows = int(config.get('Board', 'numrows'))
+numcols = int(config.get('Board', 'numcols'))
 
-allmoveslist = hpossiblemoves + vpossiblemoves
-#print('Total number of possible moves: ', len(allmoveslist))
+playerInd= sys.argv[2]
 
-featurevec1 = makefeatures_state(board, rack, message["score"]["me"] - message["score"]["opponent"])
+HOST = config.get('Agents', 'Agent'+str(playerInd)+'Host')
+PORT = int(config.get('Agents', 'Agent'+str(playerInd)+'Port'))
 
-movefeatures = {}
+lettermultiplierstring = config.get('Board', 'lettermultiplier').split(',')
+lettermultiplier = [[int(k) for k in lettermultiplierstring[i:i+numcols]] for i in range(0, numrows*numcols,numcols)]
 
-for i,move in enumerate(allmoveslist):
-    movescore = scoremove(move)[0]
-    allmoveslist[i]+=(movescore,)
-    #print(move)
+wordmultiplierstring = config.get('Board', 'wordmultiplier').split(',')
+wordmultiplier = [[int(k) for k in wordmultiplierstring[i:i+numcols]] for i in range(0, numrows*numcols,numcols)]
+
+tilepoints = {L:int(config.get('TilePoints', L)) for L in string.ascii_uppercase+'?'}
+tilepoints.update({L:int(config.get('TilePoints', '?')) for L in string.ascii_lowercase}) # basically, also add equivalent of blank points for lower case letters
+
+bagdict = {L:int(config.get('TileDistribution', L)) for L in string.ascii_uppercase+'?'}
+bag = list(''.join([L*bagdict[L] for L in string.ascii_uppercase+'?']))
+
+dictionarieslocation = config.get('Meta', 'dictionarieslocation')
+
+#Read weight file
+currentdir = os.path.dirname(os.path.abspath(__file__))
+fh = open(currentdir + '/weights.txt', "r")
+weightstring = fh.readlines()[0].replace("\n", "")
+featureweights = [float(w) for w in weightstring.split(',')]
+fh.close()
+
+## Initialize constants
+AZ = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+board_anchorpoints = [[False]*15]*15
+board_anchorconstraints = [[AZ]*15]*15
+
+## Read optimized text files for dictionaries
+#This is faster than reading a pickled object (!)
+
+
+##lwordlists    
+fh = open(dictionarieslocation + "/lwordlists.txt", "r")
+lines = [w.replace("\n", "") for w in fh.readlines()]
+lwordlists = {}
+for line in lines:
+    linelist = line.split(" ")
+    k = int(linelist[0])
+    d = {}
+    for w in linelist[1:]:
+        d[w] = 1
+    lwordlists[k] = d
+fh.close()
+#print('lwordlists', time.time() - start_time)   
+
+###alphasetdict
+alphasetdict_0B = {}
+fh = open(dictionarieslocation + "/alphasetdict.txt", "r")
+lines = [w.replace("\n", "") for w in fh.readlines()]
+for line in lines:
+    l = line.split(" ")
+    k = l[0]
+    alphasetdict_0B[k] = l[1:]
+fh.close()
+
+alphasetdict_1B = {}        
+fh = open(dictionarieslocation + "/alphasetdict1B.txt", "r")
+lines = [w.replace("\n", "") for w in fh.readlines()]
+alphasetdict_1B = {}
+for line in lines:
+    l = line.split(" ")
+    k = l[0]
+    alphasetdict_1B[k] = l[1:]
+fh.close()
+
+##### Message Passing 
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# Connect to server and send data
+sock.bind((HOST, PORT))
+print(HOST + " and " + str(PORT) + "\n")
+
+sock.listen(100)
+conn, addr = sock.accept()
+print ('connected with' + addr[0] + ":" + str(addr[1]) )
+
+#if message['status']['moverequired'] == False:
+#   sys.exit() #In the future, this may be used for some pre-processing
     
-    
-allmoveslist.sort(key=lambda tup: tup[6], reverse=True)     
 
-for i,move in enumerate(allmoveslist):
+while True:
 
-# <modeling>
-    movefeatures[i] = featurevec1 + makefeatures_stateaction(board, rack, move[3], allmoveslist[i][6],featurevec1)
-    featurelist = ["currentScoreDifference", "numTilesLeftInBag", "numUnseenVowels", "numUnseenConsonants",  "numUnseenConsonantsMinusNumUnseenVowels", "numUnseenBlanks","numBlanksOnMyRack"] + ["moveScore", "proposedScoreDiff", "leave_length", "leave_numConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw"]
+## PARSE MESSAGE
 
-    reducedfeaturevector = [movefeatures[i][0], movefeatures[i][7], abs(movefeatures[i][10]), movefeatures[i][11], movefeatures[i][12], movefeatures[i][13],1]
+    startime = 0
+    endtime = 0
 
-    featurelist = ["currentScoreDifference", "moveScore", "leave_AbsnumConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw", "bias"]
+    # Connect to server and send data
+    #sock.sendall(data + "\n")
 
+    # Receive data from the server and begin compute
+    received = conn.recv(1024)
 
-    # w dot phi
-    effectivemovescore = sum([featureweights[j] * reducedfeaturevector[j] for j in range(len(reducedfeaturevector))])
-    
-    allmoveslist[i]+=((effectivemovescore,) + tuple(reducedfeaturevector)) # Appending features and predicted score
+    print("Received: <" + received + ">")
+    if received == None or received == "":
+        break
 
-# </modeling>
+    message = json.loads(received)   
 
-    
-allmoveslist.sort(key=lambda tup: tup[7], reverse=True) #7th item is the predicted Q value
+    if message['status']['moverequired'] == False:
+        continue
 
-if len(allmoveslist) > 0:
-    fullmove = allmoveslist[0]
-#    print(fullmove)
-    featurevector = fullmove[8:]
-    featurelist = ["currentScoreDifference", "moveScore", "leave_AbsnumConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw", "bias"]
+    startime = time.time()
 
-    with open(currentdir + '/datafile', 'a') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=featurelist)
-        writer.writerow({featurelist[f]:featurevector[f] for f in range(len(featurelist))})
+    boardstring = message["board"]
+    rack = ''.join(message["rack"])
+    numblanks = sum(1 for x in rack if x=='?')
 
-    row = str(fullmove[0] + 1)
-    col = AZ[fullmove[1]]
-    
-    gcgmove = ""
-    if fullmove[2] == 'H':
-        gcgmove = row + col + " " + fullmove[3]
+    if numblanks == 0:
+        alphasetdict = alphasetdict_0B
+    elif numblanks == 1:
+        alphasetdict = alphasetdict_1B 
     else:
-        gcgmove = col + row + " " + fullmove[3]
-else:
-    gcgmove = "pass"
-	
-print(gcgmove)
+        alphasetdict = alphasetdict_1B 
+
+    #print('dict objects', time.time() - start_time)   
+
+    board = [list(boardstring)[i:i+numcols] for i in range(0, numrows*numcols,numcols)]
+
+    #print('***********')
+    hpossiblemoves = genAllWords(board, False)
+    #print(hpossiblemoves[0:9])
+    #print('***********')
+
+    numoccupied = sum(x!='.' for row in board for x in row)
+
+    #If it is the first move of the game, the symmetry makes it necessary to consider only one direction
+    if numoccupied > 0:
+        flippedboard = map(list, zip(*board))
+        vpossiblemoves = genAllWords(flippedboard, True) #Warning: Stuff will be overwritten here! We don't care, but beware!
+    #    print(vpossiblemoves[0:9])
+    #    print('***********')
+    else:
+        vpossiblemoves = []
+
+    allmoveslist = hpossiblemoves + vpossiblemoves
+    #print('Total number of possible moves: ', len(allmoveslist))
+
+    featurevec1 = makefeatures_state(board, rack, message["score"]["me"] - message["score"]["opponent"])
+
+    movefeatures = {}
+
+    for i,move in enumerate(allmoveslist):
+        movescore = scoremove(move)[0]
+        allmoveslist[i]+=(movescore,)
+        #print(move)
+        
+        
+    allmoveslist.sort(key=lambda tup: tup[6], reverse=True)     
+
+    for i,move in enumerate(allmoveslist):
+
+    # <modeling>
+        movefeatures[i] = featurevec1 + makefeatures_stateaction(board, rack, move[3], allmoveslist[i][6],featurevec1)
+        featurelist = ["currentScoreDifference", "numTilesLeftInBag", "numUnseenVowels", "numUnseenConsonants",  "numUnseenConsonantsMinusNumUnseenVowels", "numUnseenBlanks","numBlanksOnMyRack"] + ["moveScore", "proposedScoreDiff", "leave_length", "leave_numConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw"]
+
+        reducedfeaturevector = [movefeatures[i][0], movefeatures[i][7], abs(movefeatures[i][10]), movefeatures[i][11], movefeatures[i][12], movefeatures[i][13],1]
+
+        featurelist = ["currentScoreDifference", "moveScore", "leave_AbsnumConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw", "bias"]
+
+
+        # w dot phi
+        effectivemovescore = sum([featureweights[j] * reducedfeaturevector[j] for j in range(len(reducedfeaturevector))])
+        
+        allmoveslist[i]+=((effectivemovescore,) + tuple(reducedfeaturevector)) # Appending features and predicted score
+
+    # </modeling>
+
+        
+    allmoveslist.sort(key=lambda tup: tup[7], reverse=True) #7th item is the predicted Q value
+
+    if len(allmoveslist) > 0:
+        fullmove = allmoveslist[0]
+    #    print(fullmove)
+        featurevector = fullmove[8:]
+        featurelist = ["currentScoreDifference", "moveScore", "leave_AbsnumConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw", "bias"]
+
+        with open(currentdir + '/datafile', 'a') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=featurelist)
+            writer.writerow({featurelist[f]:featurevector[f] for f in range(len(featurelist))})
+
+        row = str(fullmove[0] + 1)
+        col = AZ[fullmove[1]]
+        
+        gcgmove = ""
+        if fullmove[2] == 'H':
+            gcgmove = row + col + " " + fullmove[4]
+        else:
+            gcgmove = col + row + " " + fullmove[4]
+    else:
+        gcgmove = "pass"
+    	
+    print("Sent: "+gcgmove)
+    conn.sendall(gcgmove)
+    endtime = time.time()
+    print("time consumed is " + str(endtime - startime))
 #print(time.time()-start_time)
