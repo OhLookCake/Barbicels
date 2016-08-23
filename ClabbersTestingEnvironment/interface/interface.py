@@ -216,18 +216,12 @@ class Game:
 		self.players[2] = Playerinfo(hostPlayer[2], portPlayer[2], sock2, playernames[2], score[2], rack[2], secondsremaining[2])
 
 
-		#TODO: parse and use these.
 		# #display flags 
 		# #show messages passed to agents?
-		# showMessages = ['','','']
-		# showMessages[1] = config.get('Display','agent1ShowMessages')
-		# showMessages[2] = config.get('Display','agent2ShowMessages')
+		self.showMessages = config.get('Display','ShowMessages')
 
 		# #show Board after each move? If this is true, the previous value is ignored.
-		# showBoardAtEveryMove = ['','','']
-		# showBoardAtEveryMove[1] = config.get('Display','agent1ShowBoardAtEveryMove')
-		# showBoardAtEveryMove[2] = config.get('Display','agent2ShowBoardAtEveryMove')
-		# # print(showMessages,showBoardAtEnd,showBoardAtEveryMove)
+		self.showBoardAtEveryMove = config.get('Display','ShowBoardAtEveryMove')
 
 
 		dictfile = config.get('Meta', 'dictionaryfile')	
@@ -290,7 +284,29 @@ class Game:
 				print('TIES')
 			otherplayer = 1
 			print('')
-	
+        def showscores(self):
+                print('\nGAME OVER')
+                otherplayer = 2
+                for player in [1,2]:
+                        #print("Player" + str(player)+ ': ', end='')
+                        print(self.players[player].name + ': ', end='')
+                        if len(self.players[player].rack) == 0:
+                                print('-')
+                        else:
+                                print(''.join(self.players[player].rack))
+                        print('Score ' + str(self.players[player].score), end = '')
+                        if self.players[player].score > self.players[otherplayer].score:
+                                print(' WINS')
+                        elif self.players[player].score < self.players[otherplayer].score:
+                                print(' LOSES')
+                        else:
+                                print('TIES')
+                        otherplayer = 1
+                        print('')
+
+
+
+
 	def checkword(self, word):
 		return word.upper() in self.wordlist
 
@@ -829,15 +845,17 @@ class Game:
 		##### PROCESS ######
 		# Perform connections
 		while not self.gameover:
-			self.showall()
+                        if self.showBoardAtEveryMove=="True":
+                            print("TRUEEEEEE")
+                            self.showall()
 			self.gameover = self.fullmove()
 
 			if not self.gameover:
 				self.activeplayer = 3 - self.activeplayer
-
-		self.showallgameover()
-		#for player in [1,2]:
-		#	self.players[player].sock.close()
+                if self.showBoardAtEveryMove=="True":
+                    self.showallgameover()
+                else:
+                    self.showscores()
 
 
 	def getmove(self, player, errcode, moverequired):
@@ -876,20 +894,21 @@ class Game:
 				  
 			#if showBoardAtEveryMove[player.playerid]=='True':
 			#self.board.showboard()
-			print("Rack: " + ''.join(self.players[player].rack))
-			for p in [1,2]:
-				print(self.players[p].name, end='')
+                        if self.showMessages=="True":
+                            print("Rack: " + ''.join(self.players[player].rack))
+                            for p in [1,2]:
+                                    print(self.players[p].name, end='')
 
-				if self.activeplayer == p:
-					print('*: ', end='')
-				else:
-					print(': ', end='')
-				
-				print('Score ' + str(self.players[p].score))
+                                    if self.activeplayer == p:
+                                            print('*: ', end='')
+                                    else:
+                                            print(': ', end='')
+                                    
+                                    print('Score ' + str(self.players[p].score))
 
-			#if showMessages[player.id]=='True':
-			print("Message to ", self.players[player].name)
-			print(message)
+                            #if showMessages[player.id]=='True':
+                            print("Message to ", self.players[player].name)
+                            print(message)
 
 
 			startime = 0
@@ -907,12 +926,9 @@ class Game:
 			timeconsumed = endtime - starttime
 			return (received, timeconsumed)
 		else:
-
-			print("Game over wala else")
-
-			#if showMessages[player.id]=='True':
-			print("Message to ", self.players[player].name)
-			print(message)
+			if self.showMessages=="True":
+                                print("Message to ", self.players[player].name)
+        			print(message)
 
 
 			self.players[player].sock.sendall(message + "\n")

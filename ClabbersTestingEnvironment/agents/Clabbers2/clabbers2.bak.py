@@ -19,10 +19,7 @@ import socket
 start_time = time.time()
 
 """
-expecting argv to be of length 3.
-argv[1] is the config file
-argv[2] is player number
-argv[3:9] is thre weight set
+expecting argv to be of length 3. The argument (argv[1]) is the config file, (argv[2]) is the json in the expected format - enclosed in quotes, so that python interprets it as one long string
 """
 
 configfilename = sys.argv[1]
@@ -616,16 +613,10 @@ dictionarieslocation = config.get('Meta', 'dictionarieslocation')
 
 #Read weight file
 currentdir = os.path.dirname(os.path.abspath(__file__))
-"""
 fh = open(currentdir + '/weights.txt', "r")
 weightstring = fh.readlines()[0].replace("\n", "")
 featureweights = [float(w) for w in weightstring.split(',')]
 fh.close()
-"""
-weightstring = sys.argv[3:10] #up till 9th value
-featureweights = [float(w) for w in weightstring]
-
-
 
 ## Initialize constants
 AZ = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"

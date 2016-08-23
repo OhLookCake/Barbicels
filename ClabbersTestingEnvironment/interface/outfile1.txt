@@ -1,0 +1,66 @@
+Socket1: localhost:9988
+
+Socket2: localhost:7800
+
+Received: 8H DORIC
+Received: K5 ROP#NESS 
+Received: J10 DUALS
+Received: J4 LEZ 
+Received: H6 GEDECKTS
+Received: 13B VELVET# 
+Received: 14F FA
+Received: B9 IMPA#E 
+Received: A4 UNBIND
+Received: 12A Q#T 
+Received: B1 WAIRUA
+Received: L3 GARLI# 
+Received: I7 FOX
+Received: A1 OY 
+Received: L10 YEH
+Received: C2 WOE 
+Received: C9 BOITE
+Received: 15C sANTERA 
+Received: D10 OU
+Received: M2 JOT 
+Received: D4 ANIGH
+Received: N1 MaNTID 
+Received: 1N ME
+Received: 10B ###I 
+
+GAME OVER
+TestAgent: EOR
+Score 380 LOSES
+
+Opponent: -
+Score 512 WINS
+
+**************************************************
+Received: 8F LUNATES
+Received: 7I ZEE 
+Received: 7E UEY
+Received: 6J BRUIT 
+Received: 6D JOB
+Received: K5 P###VING 
+Received: N4 LATEENER
+Received: M10 WOOSE 
+Received: 15G ENGRAIL
+Received: O1 OAKIES 
+Received: O8 MOTT
+Received: J10 QUAG 
+Received: 14E IFF
+Received: M5 V#D 
+Received: D12 PADI
+Received: 2H THERiAC# 
+Received: 1E WILI
+Received: 9G MAX 
+Received: 2A RHONES
+Received: B1 T#eODICY 
+
+GAME OVER
+TestAgent: ADNOR
+Score 412 LOSES
+
+Opponent: -
+Score 512 WINS
+
+**************************************************
