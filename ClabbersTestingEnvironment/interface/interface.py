@@ -15,6 +15,7 @@ import socket
 """
 argv[1]: number of games
 argv[2]: seed
+argv[3]: offset
 """
 
 
@@ -846,7 +847,6 @@ class Game:
 		# Perform connections
 		while not self.gameover:
                         if self.showBoardAtEveryMove=="True":
-                            print("TRUEEEEEE")
                             self.showall()
 			self.gameover = self.fullmove()
 
@@ -941,19 +941,20 @@ if __name__ == "__main__":
 
 
 	numiters = int(sys.argv[1])
+        offset = int(sys.argv[3])
 	#Read config file
 	config = ConfigParser.RawConfigParser()
 	config.read('../config.cfg')
 
 	p1host = config.get('Agents','Agent1Host')
-	p1port = int(config.get('Agents','Agent1Port'))
+	p1port = int(config.get('Agents','Agent1Port')) + offset
 
 	sock1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	sock1.connect((p1host, p1port))
 	print("Socket1: " + p1host + ":" + str(p1port) + "\n" )
 
 	p2host = config.get('Agents','Agent2Host')
-	p2port = int(config.get('Agents','Agent2Port'))
+	p2port = int(config.get('Agents','Agent2Port')) + offset
 	sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	sock2.connect((p2host, p2port))
 	print("Socket2: " + p2host + ":" + str(p2port) + "\n")
@@ -965,12 +966,6 @@ if __name__ == "__main__":
 
 	sock1.close()
 	sock2.close()
-
-
-	
-
-
-
 
 
 	

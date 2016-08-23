@@ -8,7 +8,12 @@ import socket
 #This file acts as a wrapper around Quackle, and translates between the interface and Quackle,
 # in both directions
 
-#running: python QuackleWrapper.py [configfile] [jsonmessage]
+"""
+argv[1] is config
+argv[2] is player number
+argv[3] is offset
+"""
+
 
 
 def formatMove(move):
@@ -45,12 +50,13 @@ if __name__ == '__main__':
     config = ConfigParser.RawConfigParser()
     config.read(sys.argv[1])
     playerInd = sys.argv[2]
+    offset = int(sys.argv[3])
     gamefile = config.get('Meta', 'gamefile')
     quacklePath = config.get('Agents', 'quacklepath')
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     HOST = config.get('Agents', 'Agent'+str(playerInd)+'Host')
-    PORT = int(config.get('Agents', 'Agent'+str(playerInd)+'Port'))
+    PORT = int(config.get('Agents', 'Agent'+str(playerInd)+'Port')) + offset
     # Connect to server and send data
     sock.bind((HOST, PORT))
     print(HOST + " and " + str(PORT) + "\n")

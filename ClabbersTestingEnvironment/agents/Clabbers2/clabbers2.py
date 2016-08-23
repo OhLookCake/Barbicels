@@ -13,7 +13,6 @@ import sys
 import os
 import csv
 import socket
-#TODO incorporate learning for clabbers
 ### READ MESSAGE #####
 
 start_time = time.time()
@@ -22,12 +21,14 @@ start_time = time.time()
 expecting argv to be of length 3.
 argv[1] is the config file
 argv[2] is player number
-argv[3:9] is thre weight set
+argv[3] is offset
+argv[4:10] is the weight set
 """
 
 configfilename = sys.argv[1]
 #message = json.loads(sys.argv[2])
-
+offset = int(sys.argv[3])
+multipliers = [1,1.4,-1.4,0.2,35,1.3,-28]
 
 
 def showboard(board):
@@ -598,7 +599,7 @@ numcols = int(config.get('Board', 'numcols'))
 playerInd= sys.argv[2]
 
 HOST = config.get('Agents', 'Agent'+str(playerInd)+'Host')
-PORT = int(config.get('Agents', 'Agent'+str(playerInd)+'Port'))
+PORT = int(config.get('Agents', 'Agent'+str(playerInd)+'Port')) + offset
 
 lettermultiplierstring = config.get('Board', 'lettermultiplier').split(',')
 lettermultiplier = [[int(k) for k in lettermultiplierstring[i:i+numcols]] for i in range(0, numrows*numcols,numcols)]
@@ -622,9 +623,8 @@ weightstring = fh.readlines()[0].replace("\n", "")
 featureweights = [float(w) for w in weightstring.split(',')]
 fh.close()
 """
-weightstring = sys.argv[3:10] #up till 9th value
-featureweights = [float(w) for w in weightstring]
-
+weightstring = sys.argv[4:11] #up till 9th value
+featureweights = [multipliers[i]*float(w) for (i,w) in enumerate(weightstring)]
 
 
 ## Initialize constants
