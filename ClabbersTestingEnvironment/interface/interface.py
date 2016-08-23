@@ -12,7 +12,13 @@ import socket
 
 
 #### INITIALIZE #####
-random.seed(8)
+"""
+argv[1]: number of games
+argv[2]: seed
+"""
+
+
+random.seed(sys.argv[2])
 
 
 def throwerror(errcode):
@@ -399,30 +405,43 @@ class Game:
 
 
 		#WORD
-		parsedword = ''
-		actualword = ''
-		existing = False
 
-		move.word = word
-		move.tileword = ''
+		if word == re.sub('#', '', word):
+			move.word = word
+			move.tileword = ''
 
-		r = move.startrow
-		c = move.startcol
+			r = move.startrow
+			c = move.startcol
 
-		for char in word:
-			if not char in string.ascii_letters: #upper + lower
-				parseerror = True
-			if self.board.squares[r][c] == '.':
-				move.tileword += char
-			else:
-				move.tileword += '#'
-			if move.direction == 'H':
-				c+=1
-			elif move.direction == 'V':
-				r+=1
+			for char in word:
+				if not char in string.ascii_letters: #upper + lower
+					parseerror = True
+				if self.board.squares[r][c] == '.':
+					move.tileword += char
+				else:
+					move.tileword += '#'
+				if move.direction == 'H':
+					c+=1
+				elif move.direction == 'V':
+					r+=1
+		else:
+			move.word = ''
+			move.tileword = word
 
+			r = move.startrow
+			c = move.startcol
 
-
+			for char in word:
+				if not char in string.ascii_letters+'#': #upper + lower
+					parseerror = True
+				if self.board.squares[r][c] == '.':
+					move.word += char
+				else:
+					move.word += self.board.squares[r][c]
+				if move.direction == 'H':
+					c+=1
+				elif move.direction == 'V':
+					r+=1
 
 
 			# if existing:
@@ -734,9 +753,9 @@ class Game:
 
 
 			if move.direction == 'H':
-				gcgmove+= str(move.startrow) + string.ascii_uppercase[move.startcol]
+				gcgmove+= str(move.startrow + 1) + string.ascii_uppercase[move.startcol]
 			else:
-				gcgmove+= string.ascii_uppercase[move.startcol] + str(move.startrow)
+				gcgmove+= string.ascii_uppercase[move.startcol] + str(move.startrow + 1)
 
 			gcgmove+=" " + move.word + " " + str(movescore) + " " + str(self.players[self.activeplayer].score)
 

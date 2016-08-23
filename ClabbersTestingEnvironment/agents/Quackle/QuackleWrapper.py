@@ -21,11 +21,11 @@ def quackle(gameFile,rack):
     #./test mode='positions' --position='temp.gcg' --report --rack="ABCDEFG"
     
     command  = 'cd '+quacklePath+';' + ' ./test mode="positions" --position="' + gameFile + '" --lexicon="csw12" ' + '--report --rack="' + rack + '" | tail -1 | cut -d, -f 1'
-
+    #print (command)
     output = commands.getoutput(command)
     scoreoutput = re.sub('^.*\=\ ','',output)
     output = re.sub('\(.*','',output)
-    print ("output is "+ output)
+    #print ("output is "+ output)
 
     if(output[0]=='-' and output[1]==' '):
         return 'pass'
@@ -72,3 +72,5 @@ if __name__ == '__main__':
         rack = ''.join(message["rack"])
         gcgmove = quackle(gamefile, rack)
         conn.sendall(gcgmove)
+    sock.close()
+

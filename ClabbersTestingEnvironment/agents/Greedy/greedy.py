@@ -10,6 +10,7 @@ import copy
 import itertools
 import time
 import sys
+import socket
 
 ### READ MESSAGE #####
 
@@ -17,98 +18,15 @@ random.seed(1)
 start_time = time.time()
 
 """
-expecting argv to be of length 3. The argument (argv[2]) is the json in the expected format - enclosed in quotes.
+expecting argv to be of length 3. 
+
+
+sys.argv[2] is the player index, 1 or 2
+
+The message is the json in the expected format - enclosed in quotes.
 So that python interprets it as one long string
+
 """
-
-configfilename = sys.argv[1]
-message = json.loads(sys.argv[2])
-
-if message['status']['moverequired'] == False:
-    sys.exit() 
-    
-
-#### INITIALIZE #####
-
-#Read config file
-config = ConfigParser.RawConfigParser()
-config.read(configfilename)
-
-numrows = int(config.get('Board', 'numrows'))
-numcols = int(config.get('Board', 'numcols'))
-
-lettermultiplierstring = config.get('Board', 'lettermultiplier').split(',')
-lettermultiplier = [[int(k) for k in lettermultiplierstring[i:i+numcols]] for i in range(0, numrows*numcols,numcols)]
-
-wordmultiplierstring = config.get('Board', 'wordmultiplier').split(',')
-wordmultiplier = [[int(k) for k in wordmultiplierstring[i:i+numcols]] for i in range(0, numrows*numcols,numcols)]
-
-tilepoints = {L:int(config.get('TilePoints', L)) for L in string.ascii_uppercase+'?'}
-tilepoints.update({L:int(config.get('TilePoints', '?')) for L in string.ascii_lowercase}) # basically, also add equivalent of blank points for lower case letters
-
-bagdict = {L:int(config.get('TileDistribution', L)) for L in string.ascii_uppercase+'?'}
-bag = list(''.join([L*bagdict[L] for L in string.ascii_uppercase+'?']))
-
-dictionarieslocation = config.get('Meta', 'dictionarieslocation')
-
-## PARSE MESSAGE
-
-boardstring = message["board"]
-rack = ''.join(message["rack"])
-numblanks = sum(1 for x in rack if x=='?')
-
-## Initialize constants
-AZ = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-board_anchorpoints = [[False]*15]*15
-board_anchorconstraints = [[AZ]*15]*15
-
-## Read optimized text files
-#This is faster than reading a pickled object (!)
-
-
-##lwordlists    
-fh = open(dictionarieslocation + "/lwordlists.txt", "r")
-lines = [w.replace("\n", "") for w in fh.readlines()]
-lwordlists = {}
-for line in lines:
-    linelist = line.split(" ")
-    k = int(linelist[0])
-    d = {}
-    for w in linelist[1:]:
-        d[w] = 1
-    lwordlists[k] = d
-#print('lwordlists', time.time() - start_time)   
-
-###alphasetdict    
-if numblanks == 0:
-    fh = open(dictionarieslocation + "/alphasetdict.txt", "r")
-    lines = [w.replace("\n", "") for w in fh.readlines()]
-    alphasetdict ={}
-    for line in lines:
-        l = line.split(" ")
-        k = l[0]
-        alphasetdict[k] = l[1:]
-elif numblanks == 1:
-    fh = open(dictionarieslocation + "/alphasetdict1B.txt", "r")
-    lines = [w.replace("\n", "") for w in fh.readlines()]
-    alphasetdict ={}
-    for line in lines:
-        l = line.split(" ")
-        k = l[0]
-        alphasetdict[k] = l[1:]
-else:
-    #2 blanks
-    fh = open(dictionarieslocation + "/alphasetdict2B.txt", "r")
-    lines = [w.replace("\n", "") for w in fh.readlines()]
-    alphasetdict ={}
-    for line in lines:
-        l = line.split(" ")
-        k = l[0]
-        alphasetdict[k] = l[1:]
-
-#print('dict objects', time.time() - start_time)   
-
-board = [list(boardstring)[i:i+numcols] for i in range(0, numrows*numcols,numcols)]
 
 
 def showboard(board):
@@ -209,7 +127,7 @@ def calculateAnchors(board):
     #return (board_anchorpoints, board_anchorconstraints)    
 
 
-def genRowWords2(rack, row, anchorpoints, anchorconstraints):
+def genRowWords2(rack, row, anchorpoints, anchorconstraints, alphasetdict):
 
     """
     eg:
@@ -288,12 +206,12 @@ def genRowWords2(rack, row, anchorpoints, anchorconstraints):
                 #5.
                 if row[boardpos] == '.' and l not in anchorconstraints[boardpos]:
                     moveokay = False
-#                    print(4,pos)
+#                   print(4,pos)
                     break
                 
                 
             if not(moveokay and atleastonerackletterused and touchesanchor):
-#                print(5,pos)
+#               print(5,pos)
                 continue
             
             blankedcounterdict = dict(Counter(re.sub('#','',hashword)) - Counter(re.sub('\?', '', rack)))
@@ -407,7 +325,7 @@ def genRowWords(rack, row, anchorpoints, anchorconstraints):
 #    return list(set(results))
     return results
 
-def genAllWords(board, flipped):
+def genAllWords(board, flipped,alphasetdict ):
 
     #flipped is a boolean indicating whether the board is transposed or not. This allows annotating the moves correctly
     numoccupied = sum(x!='.' for row in board for x in row)
@@ -419,7 +337,7 @@ def genAllWords(board, flipped):
         for i in range(numrows):
             #print(i) #row/col number
             row = board[i]
-            rowmoves = genRowWords2(rack, row, board_anchorpoints[i], board_anchorconstraints[i])
+            rowmoves = genRowWords2(rack, row, board_anchorpoints[i], board_anchorconstraints[i], alphasetdict)
     
             if not flipped:
                 for rawmove in rowmoves:
@@ -537,49 +455,193 @@ def scoremove(parsedmove):
         totalscore+=50
 
     return (totalscore, tilesplayed)
+##### Begin main func
 
 
-#showboard(board)
-
-#print('***********')
-hpossiblemoves = genAllWords(board, False)
-#print(hpossiblemoves[0:9])
-#print('***********')
-
-numoccupied = sum(x!='.' for row in board for x in row)
-
-#If it is the first move of the game, the symmetry makes it necessary to consider only one direction
-if numoccupied > 0:
-    flippedboard = map(list, zip(*board))
-    vpossiblemoves = genAllWords(flippedboard, True) #Warning: stuff will be overwritten here! We don't care, but beware!
-#    print(vpossiblemoves[0:9])
-#    print('***********')
-else:
-    vpossiblemoves = []
-
-allmoveslist = hpossiblemoves + vpossiblemoves
-#print('Total number of possible moves: ', len(allmoveslist))
+configfilename = sys.argv[1]
+#message = json.loads(sys.argv[2])
+playerInd = int(sys.argv[2])
 
 
-for i,move in enumerate(allmoveslist):
-    allmoveslist[i]+=(scoremove(move)[0],)
     
-allmoveslist.sort(key=lambda tup: tup[6], reverse=True)     
-#for move in allmoveslist[0:10]:
-#    print(move)
 
-#print('end', time.time() - start_time)    
-if len(allmoveslist) > 0:
-	fullmove = allmoveslist[0]
-	row = str(fullmove[0] + 1)
-	col = AZ[fullmove[1]]
-	
-	gcgmove = ""
-	if fullmove[2] == 'H':
-	    gcgmove = row + col + " " + fullmove[3]
-	else:
-	    gcgmove = col + row + " " + fullmove[3]
-else:
-	gcgmove = "pass"
-	
-print(gcgmove)# + ' ' + str(fullmove[6]))
+#### INITIALIZE #####
+
+#Read config file
+config = ConfigParser.RawConfigParser()
+config.read(configfilename)
+
+HOST = config.get('Agents', 'Agent'+str(playerInd)+'Host')
+PORT = int(config.get('Agents', 'Agent'+str(playerInd)+'Port'))
+
+numrows = int(config.get('Board', 'numrows'))
+numcols = int(config.get('Board', 'numcols'))
+
+lettermultiplierstring = config.get('Board', 'lettermultiplier').split(',')
+lettermultiplier = [[int(k) for k in lettermultiplierstring[i:i+numcols]] for i in range(0, numrows*numcols,numcols)]
+
+wordmultiplierstring = config.get('Board', 'wordmultiplier').split(',')
+wordmultiplier = [[int(k) for k in wordmultiplierstring[i:i+numcols]] for i in range(0, numrows*numcols,numcols)]
+
+tilepoints = {L:int(config.get('TilePoints', L)) for L in string.ascii_uppercase+'?'}
+tilepoints.update({L:int(config.get('TilePoints', '?')) for L in string.ascii_lowercase}) # basically, also add equivalent of blank points for lower case letters
+
+bagdict = {L:int(config.get('TileDistribution', L)) for L in string.ascii_uppercase+'?'}
+bag = list(''.join([L*bagdict[L] for L in string.ascii_uppercase+'?']))
+
+dictionarieslocation = config.get('Meta', 'dictionarieslocation')
+
+
+###### Read optimized text files
+#This is faster than reading a pickled object (!)
+
+
+##lwordlists    
+fh = open(dictionarieslocation + "/lwordlists.txt", "r")
+lines = [w.replace("\n", "") for w in fh.readlines()]
+lwordlists = {}
+for line in lines:
+    linelist = line.split(" ")
+    k = int(linelist[0])
+    d = {}
+    for w in linelist[1:]:
+        d[w] = 1
+    lwordlists[k] = d
+#print('lwordlists', time.time() - start_time)   
+
+alphasetdict = {}    
+#if numblanks == 0:
+fh = open(dictionarieslocation + "/alphasetdict.txt", "r")
+lines = [w.replace("\n", "") for w in fh.readlines()]
+alphasetdict0 ={}
+for line in lines:
+    l = line.split(" ")
+    k = l[0]
+    alphasetdict0[k] = l[1:]
+#elif numblanks == 1:
+fh = open(dictionarieslocation + "/alphasetdict1B.txt", "r")
+lines = [w.replace("\n", "") for w in fh.readlines()]
+alphasetdict1 ={}
+for line in lines:
+    l = line.split(" ")
+    k = l[0]
+    alphasetdict1[k] = l[1:]
+#else:
+#2 blanks
+fh = open(dictionarieslocation + "/alphasetdict2B.txt", "r")
+lines = [w.replace("\n", "") for w in fh.readlines()]
+alphasetdict2 ={}
+for line in lines:
+    l = line.split(" ")
+    k = l[0]
+    alphasetdict2[k] = l[1:]
+#########
+## Initialize constants
+AZ = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+board_anchorpoints = [[False]*15]*15
+board_anchorconstraints = [[AZ]*15]*15
+
+
+##### Message Passing 
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# Connect to server and send data
+sock.bind((HOST, PORT))
+print(HOST + " and " + str(PORT) + "\n")
+
+sock.listen(100)
+conn, addr = sock.accept()
+print ('connected with' + addr[0] + ":" + str(addr[1]) )
+
+message = json.loads('{"status":{"moverequired":"blah"}}')
+while True:
+
+    startime = 0
+    endtime = 0
+
+    # Connect to server and send data
+    #sock.sendall(data + "\n")
+
+    # Receive data from the server and begin compute
+    received = conn.recv(1024)
+
+    print("Received: <" + received + ">")
+    if received == None or received == "":
+        break
+
+    message = json.loads(received)   
+
+    
+
+    ###########
+    ## PARSE MESSAGE
+    if message['status']['moverequired'] == False:
+        continue
+
+    boardstring = message["board"]
+    rack = ''.join(message["rack"])
+    numblanks = sum(1 for x in rack if x=='?')
+    board = [list(boardstring)[i:i+numcols] for i in range(0, numrows*numcols,numcols)]
+
+
+    #showboard(board)
+
+    ####New addition
+    if numblanks == 0:
+        alphasetdict = alphasetdict0
+    elif numblanks == 1:
+        alphasetdict = alphasetdict1
+    else:
+        alphasetdict = alphasetdict2
+    starttime = time.time()
+
+    hpossiblemoves = genAllWords(board, False, alphasetdict)
+    #print(hpossiblemoves[0:9])
+    #print('***********')
+
+    numoccupied = sum(x!='.' for row in board for x in row)
+
+    #If it is the first move of the game, the symmetry makes it necessary to consider only one direction
+    if numoccupied > 0:
+        flippedboard = map(list, zip(*board))
+        vpossiblemoves = genAllWords(flippedboard, True, alphasetdict) #Warning: stuff will be overwritten here! We don't care, but beware!
+    #    print(vpossiblemoves[0:9])
+    #    print('***********')
+    else:
+        vpossiblemoves = []
+
+    endtime = time.time()
+    timeconsumed = endtime - starttime
+    print ("\nTime consumed was " +str(timeconsumed))
+    allmoveslist = hpossiblemoves + vpossiblemoves
+    #print('Total number of possible moves: ', len(allmoveslist))
+
+
+    for i,move in enumerate(allmoveslist):
+        allmoveslist[i]+=(scoremove(move)[0],)
+        
+    allmoveslist.sort(key=lambda tup: tup[6], reverse=True)     
+    #for move in allmoveslist[0:10]:
+    #    print(move)
+
+    #print('end', time.time() - start_time)    
+    if len(allmoveslist) > 0:
+    	fullmove = allmoveslist[0]
+    	row = str(fullmove[0] + 1)
+    	col = AZ[fullmove[1]]
+    	
+    	gcgmove = ""
+    	if fullmove[2] == 'H':
+    	    gcgmove = row + col + " " + fullmove[4]
+    	else:
+    	    gcgmove = col + row + " " + fullmove[4]
+    else:
+    	gcgmove = "pass"
+
+    	
+    print("Sent: " + gcgmove)# + ' ' + str(fullmove[6]))
+    conn.sendall(gcgmove)
+    
+sock.close()
+
+    
+
