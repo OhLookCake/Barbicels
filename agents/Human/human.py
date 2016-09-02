@@ -1,0 +1,2 @@
+print(raw_input())
+
