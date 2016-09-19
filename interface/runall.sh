@@ -6,20 +6,23 @@
 # $6-12 are weights for clabbers
 
 
-#p1=$(echo $3%2 + 1| bc)         #player number for our agent    (Starts when offset is even)
-#p2=$(echo \($3+1\)%2 + 1 | bc)  #player number for competing agent
+weightfile=output/weightfile.txt
+outfile=`echo output/outfile${5}_${3}.txt`
 
-echo Generation $5 _ $3 >> weightfile.txt
-echo $6 $7 $8 $9 $10 $11 $12 >> weightfile.txt
-echo   >> weightfile.txt
+#Write weights to file
+echo   >> $weightfile
+echo Generation $5 _ $3 >> $weightfile
+echo $6 $7 $8 $9 $10 $11 $12 >> $weightfile
+echo   >> $weightfile
 
+# Our TestAgent
 python ../agents/Clabbers2/clabbers2.py $4 1 $3 $6 $7 $8 $9 $10 $11 $12 > /dev/null &
-
 sleep 5
+
+# Opponent to test/learn (Quackle)
 python ../agents/Quackle/QuackleWrapper.py $4 2 $3 > /dev/null & 
 sleep 2
 
-outfile=`echo outfile${5}_${3}.txt`
 python interface.py $1 $2 $3 $4 > $outfile
 
 #number of wins
@@ -28,10 +31,10 @@ wins=$(cat $outfile | tr \\n , | sed 's/,Score/XXXXScore/g' | tr , \\n | sed 's/
 #score for
 scorefor=$(cat $outfile | tr \\n , | sed 's/,Score/XXXXScore/g' | tr , \\n | sed 's/XXXX/\ \| /g' | grep "WINS\|LOSES" | grep TestAgent | cut -d\  -f5 | tr \\n \+ | sed 's/$/0\n/g' | bc)
 
-#score against because we want to minimize this
+#score against 
 scoreagainst=$(cat $outfile | tr \\n , | sed 's/,Score/XXXXScore/g' | tr , \\n | sed 's/XXXX/\ \| /g' | grep "WINS\|LOSES" | grep Opponent | cut -d\  -f5 | tr \\n \+ | sed 's/$/0\n/g' | bc)
 
-
+#Net score against (because we want to minimize this)
 echo -1000000*$wins-$scorefor+$scoreagainst | bc 
 
 

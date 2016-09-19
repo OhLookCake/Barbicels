@@ -29,8 +29,8 @@ configfilename = sys.argv[1]
 #message = json.loads(sys.argv[2])
 offset = int(sys.argv[3])
 #multipliers = [1,1.4,-1.4,0.2,35,1.3,-28]
-multipliers = [0.375, 0.75, 2.5, 2.5, 14, 27.5, 13.5]
-
+#multipliers = , 2.5, 2.5, 14, 27.5, 13.5] # gen 1
+multipliers = [0.380178567047442, 0.6120864644845542, 2.149980971221099, 2.474715020475558, 12.965240890748841, 25.768325231286795, 14.766862823640619] # updated by multiplying with stddev from gen 4
 
 def showboard(board):
     #board is a numrows*numcols list    

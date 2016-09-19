@@ -1,0 +1,5 @@
+outfile*.txt
+gamefile*.gcg
+*.swp
+*.bak
+interface/output
