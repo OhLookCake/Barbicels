@@ -1,0 +1,4 @@
+(25_w,50)-aCMA-ES (mu_w=14.0,w_1=14%) in dimension 7 (seed=129887, Fri Sep 16 14:10:15 2016)
+Generation 6
+1
+CMD: sh runall.sh 20 999 1 /home/mihir/Projects/Barbicels/mihirconfig.cfg 6 4.09984422909 3.02676519107 0.483249596638 -2.82237291541 1.36380642594 -1.12903863934 0.698884905934
