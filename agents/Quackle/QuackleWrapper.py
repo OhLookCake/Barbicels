@@ -12,6 +12,7 @@ import socket
 argv[1] is config
 argv[2] is player number
 argv[3] is offset
+argv[4] is generation id
 """
 
 
@@ -51,7 +52,7 @@ if __name__ == '__main__':
     config.read(sys.argv[1])
     playerInd = sys.argv[2]
     offset = int(sys.argv[3])
-    gamefile = config.get('Meta', 'gamefile')
+    gamefile = "/home/mihir/Projects/Barbicels_parallel/interface/gamefile"+sys.argv[4]+"_"+sys.argv[3]+".gcg"
     quacklePath = config.get('Agents', 'quacklepath')
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

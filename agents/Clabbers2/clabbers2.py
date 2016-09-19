@@ -28,7 +28,8 @@ argv[4:10] is the weight set
 configfilename = sys.argv[1]
 #message = json.loads(sys.argv[2])
 offset = int(sys.argv[3])
-multipliers = [1,1.4,-1.4,0.2,35,1.3,-28]
+#multipliers = [1,1.4,-1.4,0.2,35,1.3,-28]
+multipliers = [0.375, 0.75, 2.5, 2.5, 14, 27.5, 13.5]
 
 
 def showboard(board):
@@ -576,7 +577,7 @@ def makefeatures_stateaction(board, rack, hashmove, movescore, featurevec1):
     l_bingoprobnext = l_bingoprobnext*1.0 / MCtrials
     l_enumbingos = l_enumbingos*1.0 / MCtrials
 
-    featurevec2 = (movescore, proposedscorediff, len(leave), l_consminusvowels, l_blanks, l_bingoprobnext, l_enumbingos)
+    featurevec2 = (movescore, proposedscorediff, len(leave), abs(l_consminusvowels), l_blanks, l_bingoprobnext, l_enumbingos)
 #    if l_bingoprobnext > 0:
 #        print(featurevec2)
     
@@ -588,6 +589,11 @@ def makefeatures_stateaction(board, rack, hashmove, movescore, featurevec1):
 #showboard(board)
 
 #### INITIALIZE #####
+
+with open('clabbersweightfile.txt', 'a') as fw:
+    fw.write(str(sys.argv[4:11])+'\n')
+
+
 
 #Read config file
 config = ConfigParser.RawConfigParser()
