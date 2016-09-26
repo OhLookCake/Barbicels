@@ -16,6 +16,8 @@ import socket
 argv[1]: number of games
 argv[2]: seed
 argv[3]: offset
+argv[4]: config file
+argv[5]: generation number
 """
 
 
@@ -158,7 +160,7 @@ class Game:
 		
 		#Read config file
 		config = ConfigParser.RawConfigParser()
-		config.read('../config.cfg')
+		config.read(sys.argv[4])
 
 		######## Board Params ###########
 
@@ -227,6 +229,7 @@ class Game:
 
 		dictfile = config.get('Meta', 'dictionaryfile')	
 		gamefile = config.get('Meta', 'gamefile')
+		gamefile = gamefile+sys.argv[5]+"_"+sys.argv[3]+".gcg"
 
 		self.gamefile = gamefile
 		
@@ -234,11 +237,12 @@ class Game:
 		wordlist = {w.replace("\n", "").upper():1 for w in fh.readlines()}
 		self.wordlist = wordlist
 
-		self.activeplayer = 1 #startplayer
+		self.activeplayer = startplayer
 		self.gameover = False
 
 
 		# Actual init. Draw tiles.
+		self.passcount=0 #after 6 consecutive passes end the game #TODO: add the scores, etc.
 		self.players[self.activeplayer].rack = self.bag.drawtiles(7)
 		self.players[3 - self.activeplayer].rack = self.bag.drawtiles(7)
 
@@ -366,6 +370,7 @@ class Game:
 			#pass
 			if movesplit[0].lower() == 'pass':
 				move.category = 'P'
+				self.passcount+=1
 				return (move, parseerror)
 			else:
 				parseerror = True
@@ -373,6 +378,7 @@ class Game:
 				return (None, parseerror)
 		elif len(movesplit) == 2:
 			#not pass
+			self.passcount = 0 
 			if movesplit[0].lower() == 'exch':
 				move.category = 'E'
 				move.word = movesplit[1].upper()
@@ -739,7 +745,10 @@ class Game:
 
 			okmove = True
 
-
+		if self.passcount >= 6:
+			self.gameover = True
+			return True #gameoverflag
+			
 
 		#server side processing of move
 		self.players[self.activeplayer].timeleft-=timeconsumed
@@ -878,6 +887,8 @@ class Game:
 		dictdatatosend['status'] = {}
 		dictdatatosend['status']['moverequired'] = moverequired
 		dictdatatosend['status']['endofgame'] = self.gameover
+		dictdatatosend['whichinterface'] = self.gamefile
+
 		
 		datatosend = json.dumps(dictdatatosend)
 		# if moverequired:
@@ -931,7 +942,7 @@ class Game:
         			print(message)
 
 
-			self.players[player].sock.sendall(message + "\n")
+			#self.players[player].sock.sendall(message + "\n")
 
 			return 0
 
@@ -944,7 +955,7 @@ if __name__ == "__main__":
         offset = int(sys.argv[3])
 	#Read config file
 	config = ConfigParser.RawConfigParser()
-	config.read('../config.cfg')
+	config.read(sys.argv[4])
 
 	p1host = config.get('Agents','Agent1Host')
 	p1port = int(config.get('Agents','Agent1Port')) + offset
@@ -955,6 +966,8 @@ if __name__ == "__main__":
 
 	p2host = config.get('Agents','Agent2Host')
 	p2port = int(config.get('Agents','Agent2Port')) + offset
+	print(p2host)
+	print(p2port)
 	sock2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	sock2.connect((p2host, p2port))
 	print("Socket2: " + p2host + ":" + str(p2port) + "\n")

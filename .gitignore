@@ -1,0 +1,6 @@
+*.swp
+*.bak
+interface/output
+interface/quackfile*
+interface/clabbfile*
+*.pkl
