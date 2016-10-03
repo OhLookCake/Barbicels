@@ -13,7 +13,6 @@ import sys
 import os
 import csv
 import socket
-### READ MESSAGE #####
 
 start_time = time.time()
 
@@ -28,7 +27,8 @@ argv[4:10] is the weight set
 configfilename = sys.argv[1]
 #message = json.loads(sys.argv[2])
 offset = int(sys.argv[3])
-multipliers = [1,1.4,-1.4,0.2,35,1.3,-28]
+#multipliers = [1,1.4,-1.4,0.2,35,1.3,-28]
+multipliers = [0.25, 1.5, 2.5, 5, 2]
 
 
 def showboard(board):
@@ -741,7 +741,9 @@ while True:
 
     allmoveslist = hpossiblemoves + vpossiblemoves
     #print('Total number of possible moves: ', len(allmoveslist))
-
+    #if 86 - numoccupied <= 0:
+        #perfewct playt
+    #else
     featurevec1 = makefeatures_state(board, rack, message["score"]["me"] - message["score"]["opponent"])
 
     movefeatures = {}
@@ -760,9 +762,9 @@ while True:
         movefeatures[i] = featurevec1 + makefeatures_stateaction(board, rack, move[3], allmoveslist[i][6],featurevec1)
         featurelist = ["currentScoreDifference", "numTilesLeftInBag", "numUnseenVowels", "numUnseenConsonants",  "numUnseenConsonantsMinusNumUnseenVowels", "numUnseenBlanks","numBlanksOnMyRack"] + ["moveScore", "proposedScoreDiff", "leave_length", "leave_numConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw"]
 
-        reducedfeaturevector = [movefeatures[i][0], movefeatures[i][7], abs(movefeatures[i][10]), movefeatures[i][11], movefeatures[i][12], movefeatures[i][13],1]
+        reducedfeaturevector =  [movefeatures[i][7], abs(movefeatures[i][10]), movefeatures[i][11], movefeatures[i][12], movefeatures[i][13]]
 
-        featurelist = ["currentScoreDifference", "moveScore", "leave_AbsnumConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw", "bias"]
+        featurelist = ["moveScore", "leave_NumConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw"]
 
 
         # w dot phi
@@ -779,7 +781,7 @@ while True:
         fullmove = allmoveslist[0]
     #    print(fullmove)
         featurevector = fullmove[8:]
-        featurelist = ["currentScoreDifference", "moveScore", "leave_AbsnumConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw", "bias"]
+        featurelist = ["moveScore", "leave_NumConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw"]
 
         with open(currentdir + '/datafile', 'a') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=featurelist)

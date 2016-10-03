@@ -28,13 +28,14 @@ if __name__=="__main__":
 	popsize = 50
 	maxiter = 10
 	gamesperagent = 100
-	itercounter = 1
+	itercounter = 9
 
-	initweights = [3.33, 2, 0, -2, 2, 1.63, 1.66]
+	#initweights = [5.6, -2, 2, 7, 2 ]
+	#initweights = [3.33, 2, 0, -2, 2, 1.63, 1.66]
 
-	es = cma.CMAEvolutionStrategy(initweights, 1, {'popsize':popsize, 'maxiter':maxiter})
+	#es = cma.CMAEvolutionStrategy(initweights, 1, {'popsize':popsize, 'maxiter':maxiter})
 	#ALTERNATIVELY, load
-	#es = pickle.load(open('saved-cma-object_' + str(itercounter) + '.pkl', 'rb'))
+	es = pickle.load(open('saved-cma-object_' + str(itercounter) + '.pkl', 'rb'))
 	with Parallel (n_jobs=4) as parallel:
 		while not es.stop():
 			print("Generation " + str(itercounter))

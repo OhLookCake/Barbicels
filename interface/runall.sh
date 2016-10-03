@@ -13,7 +13,7 @@ echo Generation $5 _ $3 >> output/weightfile.txt
 echo $6 $7 $8 $9 $10 $11 $12 >> output/weightfile.txt
 echo   >> output/weightfile.txt
 
-gamefile=`echo gamefile${5}_${3}.gcg`
+gamefile=`echo output/gamefile${5}_${3}.gcg`
 touch $gamefile
 sudo chmod +wrx $gamefile
 
