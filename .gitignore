@@ -3,4 +3,5 @@
 interface/output
 interface/quackfile*
 interface/clabbfile*
+interface/*.gcg
 *.pkl

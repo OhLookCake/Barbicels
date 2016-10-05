@@ -14,21 +14,121 @@ import os
 import csv
 import socket
 
-start_time = time.time()
 
-"""
-expecting argv to be of length 3.
-argv[1] is the config file
-argv[2] is player number
-argv[3] is offset
-argv[4:10] is the weight set
-"""
 
-configfilename = sys.argv[1]
-#message = json.loads(sys.argv[2])
-offset = int(sys.argv[3])
-#multipliers = [1,1.4,-1.4,0.2,35,1.3,-28]
-multipliers = [0.25, 1.5, 2.5, 5, 2]
+class Move:
+    def __init__(self, category, startrow, startcol, direction, word, tileword):
+        #category is 'P'/'E'/'R'  (Pass/Exchange/Regular)
+        #startrow, starcol are integers 0 indexed
+        #direction is uppercase V or H
+        # word has blank lowercased already
+        #Eg. 5,0,'V','TaBLE', 'TaB#E'
+
+        self.category = category
+        self.startrow = startrow - 1
+        self.startcol = startcol - 1
+        self.direction = direction
+        self.word = word
+        self.tileword = tileword
+        self.score = 0
+        self.features = []
+
+    def translateMoveToGcg(move):
+        """Translates move to gcg format
+        """
+        cols = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O']
+        if self.direction=='H':
+            gcgmove  = ''.join([str(self.startrow+1), cols[self.startcol]])
+        else:
+            gcgmove  = ''.join([cols[self.startcol], str(self.startrow+1)])
+
+        return gcgmove
+
+class Node:
+    def __init__(self, move, board, mytiles, opptiles, scorediff, onturn):
+        self.move = move
+        self.board = board
+        self.mytiles = mytiles #list
+        self.opptiles = opptiles #list
+        self.scorediff = scorediff
+        self.onturn = onturn
+        self.passcount = 0
+        self.value = 0
+
+
+
+def updateboard(board, move):
+    r = move.startrow
+    c = move.startcol
+    dirc = move.direction
+    parsedword = move.tileword
+    actualword = move.word
+    i = 0
+    for i in range(len(actualword)):
+        if parsedword[i]!='#':
+            board[r][c] = parsedword[i]
+
+        if dirc == 'H':
+            c+=1
+        elif dirc =='V':
+            r+=1
+
+    
+
+
+def evaluateMove(startnode, currentdepth):
+    print("\n DEPTH " + str(currentdepth))
+
+    if startnode.onturn == 0:    #OUR AGENT
+        if len(startnode.opptiles) == 0: # the game has actually ended, a move shouldn't be played
+            print("HERE1")
+            rackbonus = 2 * sum([tilepoints[x] for x in startnode.mytiles])
+            return (startnode.scorediff - rackbonus)
+
+        moves = genAllWords(startnode.board, False, ''.join(startnode.mytiles))
+        moves+=genAllWords(startnode.board, True, ''.join(startnode.mytiles))
+    else:                       #OPPONENT
+        if len(startnode.mytiles) == 0: # the game has actually ended, a move shouldn't be played
+            print("HERE2")
+            rackbonus = 2 * sum([tilepoints[x] for x in startnode.opptiles])
+            return (startnode.scorediff + rackbonus)
+        moves = genAllWords(startnode.board, False, ''.join(startnode.opptiles))
+        moves+=genAllWords(startnode.board, True, ''.join(startnode.opptiles))
+
+    print("#MOVES"+str(len(moves)))
+
+    #TODO: add pass ka mechanic
+    # moves.append(passing move)
+    ctr = 1
+    nodelist = []
+    for move in moves:
+        print("counter="+str(ctr))
+        ctr+=1
+        movenode = copy.deepcopy(startnode)
+        print("Move " +str(move.startrow)+" "+str(move.startcol)+" "+str(move.tileword))
+        updateboard(movenode.board, move)
+
+        movenode.move = move
+        if startnode.onturn == 0:
+            movenode.mytiles = list(Counter(startnode.mytiles) - Counter(re.sub('#', '', move.tileword)))
+            movescore, blah = scoremove(move, board)
+            movenode.scorediff += movescore
+            movenode.onturn = 1
+        else:
+            movenode.opptiles = list(Counter(startnode.opptiles) - Counter(re.sub('#', '', move.tileword)))
+            movescore, blah = scoremove(move, board)
+            movenode.scorediff -= movescore
+            movenode.onturn = 0
+        #if move is pass update passcount
+
+        movevalue = evaluateMove(movenode, currentdepth+1)
+        movenode.value = movevalue
+        nodelist.append(movenode)
+
+    if startnode.onturn==0:
+        return max(nodelist, key=lambda n: n.value)
+    else:
+        return min(nodelist, key=lambda n: n.value)
 
 
 def showboard(board):
@@ -108,21 +208,14 @@ def calculateAnchors(board):
             
             
             hpattern = re.compile(leftstring + '([A-Z])' + rightstring)
-#            vpattern = re.compile(upstring + '([A-Z])' + downstring)
+            #vpattern = re.compile(upstring + '([A-Z])' + downstring)
             
             if len(leftstring + rightstring) > 0:
                 hcandidates = ''.join([m.group(1) for m in [hpattern.match(w) for w in lwordlists[len(leftstring + rightstring) + 1]] if m])
             else:
                 hcandidates = AZ
-                
-#            if len(upstring + downstring) > 0:
-#                vcandidates = ''.join([m.group(1) for m in [vpattern.match(w) for w in lwordlists[len(upstring + downstring) + 1]] if m])
-#            else:
-#                vcandidates = AZ
             
-#            board_anchorconstraints[i][j] = strIntersection(hcandidates, vcandidates)
             board_anchorconstraints[i][j] = hcandidates            
-            #print(i,j,hcandidates,vcandidates)
             if len(board_anchorconstraints[i][j])>0:
                 board_anchorpoints[i][j] = True
                 
@@ -130,29 +223,29 @@ def calculateAnchors(board):
 
 
 def genRowWords2(rack, row, anchorpoints, anchorconstraints):
-
     """
     eg:
-        rack = "RECDNAV"
-        row = ['.','.','.','.','.','.','.','.','.','.','E','.','.','.','.']
-        anchorconstraints = [AZ,AZ,AZ,AZ,AZ,AZ,AZ,'PQS',AZ,'RST',AZ,'P',AZ,AZ,AZ]
-        anchorpoints = [False,False,False,False,False,False,False,False,False,False,False,True,False,False,False]
+    rack = "RECDNAV"
+    row = ['.','.','.','.','.','.','.','.','.','.','E','.','.','.','.']
+    anchorconstraints = [AZ,AZ,AZ,AZ,AZ,AZ,AZ,'PQS',AZ,'RST',AZ,'P',AZ,AZ,AZ]
+    anchorpoints = [False,False,True,False,False,False,False,False,False,False,False,True,False,False,False]
     """
     
     if sum(anchorpoints) == 0:
         return []
-#    print(anchorconstraints)  
+     
 
     blankspresent = len(rack) - len(re.sub('\?', '', rack))
     letters = re.sub('\?', '', rack) + ''.join([x for x in row if x!='.' ]) 
     foundwordlist = []
     movelist = []
-    
-        
+            
     powerset = itertools.chain.from_iterable(itertools.combinations(letters, r) for r in range(2,len(letters)+1))
     
+
     for subset in powerset:
         key = ''.join(sorted(subset))
+        
         if key in alphasetdict:
             words = alphasetdict[key]
             for fw in words:
@@ -173,11 +266,11 @@ def genRowWords2(rack, row, anchorpoints, anchorconstraints):
             
             #1.
             if pos > 0 and row[pos-1]!='.':
-#                print(1,pos)
+            #    print(1,pos)
                 continue
-#            print(pos, fw)
+            #print(pos, fw)
             if pos + len(fw) < numcols and row[pos + len(fw)]!='.':
-#                print(2,pos)                
+            #    print(2,pos)                
                 continue
             
             moveokay = True            
@@ -185,14 +278,14 @@ def genRowWords2(rack, row, anchorpoints, anchorconstraints):
             touchesanchor = False
             hashword = fw
             
-            
+         
             for i,l in enumerate(fw):
                 boardpos = pos + i
                 
                 #2. 
                 if row[boardpos]!='.' and row[boardpos]!=l:
                     moveokay = False
-#                    print(3,pos)                    
+                #    print(3,pos)                    
                     break
                 
                 #3.
@@ -208,12 +301,12 @@ def genRowWords2(rack, row, anchorpoints, anchorconstraints):
                 #5.
                 if row[boardpos] == '.' and l not in anchorconstraints[boardpos]:
                     moveokay = False
-#                    print(4,pos)
+                #    print(4,pos)
                     break
                 
                 
             if not(moveokay and atleastonerackletterused and touchesanchor):
-#                print(5,pos)
+            #    print(5,pos)
                 continue
             
             blankedcounterdict = dict(Counter(re.sub('#','',hashword)) - Counter(re.sub('\?', '', rack)))
@@ -228,10 +321,12 @@ def genRowWords2(rack, row, anchorpoints, anchorconstraints):
                     if l == blankedletter:
                         temphashword = hashword[:i] + l.lower() + hashword[i+1:]
                         movelist.append((pos, temphashword, fw[:i] + l.lower() + fw[i+1:], re.sub('#','', temphashword)))
+
             else:
                 movelist.append((pos, hashword, fw, re.sub('#','',hashword)))
+
                             
-#    print(movelist)
+    #print(movelist)
     return movelist
     
                 
@@ -327,7 +422,7 @@ def genRowWords(rack, row, anchorpoints, anchorconstraints):
 #    return list(set(results))
     return results
 
-def genAllWords(board, flipped):
+def genAllWords(board, flipped, rack):
 
     #flipped is a boolean indicating whether the board is transposed or not. This allows annotating the moves correctly
     numoccupied = sum(x!='.' for row in board for x in row)
@@ -382,18 +477,24 @@ def genAllWords(board, flipped):
             else:
                 for i in range((ccol - len(w) + 1), ccol + 1):
                     movelist.append((crow, i, 'H', w, w, w))
+
+
+    MOVELIST = []
+    for move in movelist:
+        m = Move('R', move[0]+1, move[1]+1, move[2], move[4], move[3])
+        MOVELIST.append(m)
         
-    return movelist
+    return MOVELIST
     
     
-def scoremove(parsedmove): 
-    letterboard = copy.deepcopy(board)
+def scoremove(parsedmove, xboard): 
+    copyofboard = copy.deepcopy(xboard)
     
-    r = parsedmove[0]
-    c = parsedmove[1]
-    dirc = parsedmove[2]
-    parsedword = parsedmove[3]
-    actualword = parsedmove[4]
+    r = parsedmove.startrow
+    c = parsedmove.startcol
+    dirc = parsedmove.direction
+    parsedword = parsedmove.tileword
+    actualword = parsedmove.word
     
     i = 0 
     totalscore = 0
@@ -414,34 +515,34 @@ def scoremove(parsedmove):
             #calculate perpendicular word score
             if dirc == 'H':
                 rtemp = r-1
-                while rtemp >= 0 and letterboard[rtemp][c]!='.':
+                while rtemp >= 0 and copyofboard[rtemp][c]!='.':
                     hasperpendicularplay = True
-                    perpendicularwordscore += tilepoints[letterboard[rtemp][c]]
+                    perpendicularwordscore += tilepoints[copyofboard[rtemp][c]]
                     rtemp-=1
                 rtemp = r+1                
                 
-                while rtemp < numrows and letterboard[rtemp][c]!='.':
+                while rtemp < numrows and copyofboard[rtemp][c]!='.':
                     hasperpendicularplay = True
-                    perpendicularwordscore += tilepoints[letterboard[rtemp][c]]
+                    perpendicularwordscore += tilepoints[copyofboard[rtemp][c]]
                     rtemp+=1
                 
             else:
                 ctemp = c-1
-                while ctemp >= 0 and letterboard[r][ctemp]!='.':
+                while ctemp >= 0 and copyofboard[r][ctemp]!='.':
                     hasperpendicularplay = True
-                    perpendicularwordscore += tilepoints[letterboard[r][ctemp]]
+                    perpendicularwordscore += tilepoints[copyofboard[r][ctemp]]
                     ctemp-=1
                 ctemp = c+1                
-                while ctemp < numcols and letterboard[r][ctemp]!='.':
+                while ctemp < numcols and copyofboard[r][ctemp]!='.':
                     hasperpendicularplay = True
-                    perpendicularwordscore += tilepoints[letterboard[r][ctemp]]
+                    perpendicularwordscore += tilepoints[copyofboard[r][ctemp]]
                     ctemp+=1
             
             perpendicularwordscore *= perpendicularwordmultiplier
             if hasperpendicularplay:
                 totalscore += perpendicularwordscore
         
-        letterboard[r][c] = actualword[i] #BOARD UPDATED HERE                    
+        copyofboard[r][c] = actualword[i] #COPY OF BOARD UPDATED HERE                    
         if dirc == 'H':
             c+=1
         elif dirc =='V':
@@ -456,7 +557,8 @@ def scoremove(parsedmove):
     if ntilesplayed == 7:
         totalscore+=50
 
-    return (totalscore, tilesplayed)
+    return (totalscore, copyofboard)
+
 def makefeatures_state(board, rack, scorediff):
     """
     STATE FEATURES:
@@ -502,7 +604,6 @@ def makefeatures_state(board, rack, scorediff):
 
 
 def makefeatures_stateaction(board, rack, hashmove, movescore, featurevec1):
-    
     """
     STATE_ACTION features:
         movescore
@@ -533,24 +634,41 @@ def makefeatures_stateaction(board, rack, hashmove, movescore, featurevec1):
     l_consminusvowels = sum(x in 'BCDFGHJKLMNPQRSTVWXYZ' for x in leave) - sum(x in 'AEIOU' for x in leave) 
     l_blanks = sum(x=='?' for x in leave)
     
-    l_bingoprobnext = 0
-    l_enumbingos = 0
+
     MCtrials = 100
     numtilestodraw = min(featurevec1[1], 7-len(leave))
     tilesonboard = re.sub('[a-z]', '?', re.sub('\.','',boardstring))
     unseentilesdict = dict(Counter(fullbag) - Counter(tilesonboard + tilestoplay))
     unseentiles = ''.join(x*unseentilesdict[x] for x in unseentilesdict)
     
+    l_bingoprobnext, l_enumbingos = sampleFromBag(leave, numtilestodraw, unseentiles, MCtrials)
 
+
+    featurevec2 = (movescore, proposedscorediff, len(leave), l_consminusvowels, l_blanks, l_bingoprobnext, l_enumbingos)
+    #if l_bingoprobnext > 0:
+    #    print(featurevec2)
+    
+    return featurevec2
+
+
+
+
+
+
+########## GLOBAL / MAIN ###########
+def sampleFromBag(leave, numtilestodraw, unseentiles, MCtrials):
+    l_bingoprobnext = 0
+    l_enumbingos = 0
+    
     for i in range(MCtrials):
         hypotheticaldraw = ''.join(random.sample(unseentiles,numtilestodraw))
-#        if hashmove == 'DOT':
-#            hypotheticaldraw = 'VSR'
+        #if hashmove == 'DOT':
+        #    hypotheticaldraw = 'VSR'
 
         hrack = leave + hypotheticaldraw
         hrack = ''.join(sorted(list(hrack)))
         
-#        if hashmove == 'DOT':
+        # if hashmove == 'DOT':
             #print(">",numtilestodraw,hypotheticaldraw, hrack)
             #hrack = 'HASTIER'
             #hrack = ''.join(sorted(list(hrack)))
@@ -573,19 +691,29 @@ def makefeatures_stateaction(board, rack, hashmove, movescore, featurevec1):
             
         l_enumbingos +=len(bingos)
         l_bingoprobnext += (len(bingos) > 0)
+
     l_bingoprobnext = l_bingoprobnext*1.0 / MCtrials
     l_enumbingos = l_enumbingos*1.0 / MCtrials
 
-    featurevec2 = (movescore, proposedscorediff, len(leave), l_consminusvowels, l_blanks, l_bingoprobnext, l_enumbingos)
-#    if l_bingoprobnext > 0:
-#        print(featurevec2)
-    
-    return featurevec2
-
-    
+    return (l_bingoprobnext, l_enumbingos)
 
 
-#showboard(board)
+
+
+"""
+expecting argv to be of length 3.
+argv[1] is the config file
+argv[2] is player number
+argv[3] is offset
+argv[4:8] is the weight set
+"""
+start_time = time.time()
+configfilename = sys.argv[1]
+#message = json.loads(sys.argv[2])
+offset = int(sys.argv[3])
+#multipliers = [1,1.4,-1.4,0.2,35,1.3,-28]
+multipliers = [0.25, 1.5, 2.5, 5, 2]
+playerInd= sys.argv[2]
 
 #### INITIALIZE #####
 
@@ -596,7 +724,6 @@ config.read(configfilename)
 numrows = int(config.get('Board', 'numrows'))
 numcols = int(config.get('Board', 'numcols'))
 
-playerInd= sys.argv[2]
 
 HOST = config.get('Agents', 'Agent'+str(playerInd)+'Host')
 PORT = int(config.get('Agents', 'Agent'+str(playerInd)+'Port')) + offset
@@ -616,19 +743,13 @@ bag = list(''.join([L*bagdict[L] for L in string.ascii_uppercase+'?']))
 dictionarieslocation = config.get('Meta', 'dictionarieslocation')
 
 #Read weight file
-currentdir = os.path.dirname(os.path.abspath(__file__))
-"""
-fh = open(currentdir + '/weights.txt', "r")
-weightstring = fh.readlines()[0].replace("\n", "")
-featureweights = [float(w) for w in weightstring.split(',')]
-fh.close()
-"""
-weightstring = sys.argv[4:11] #up till 9th value
-featureweights = [multipliers[i]*float(w) for (i,w) in enumerate(weightstring)]
 
+weightstring = sys.argv[4:9] #up till 8th value
+featureweights = [multipliers[i]*float(w) for (i,w) in enumerate(weightstring)]
 
 ## Initialize constants
 AZ = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+fullbag = 'AAAAAAAAABBCCDDDDEEEEEEEEEEEEFFGGGHHIIIIIIIIIJKLLLLMMNNNNNNOOOOOOOOPPQRRRRRRSSSSTTTTTTUUUUVVWWXYYZ'
 board_anchorpoints = [[False]*15]*15
 board_anchorconstraints = [[AZ]*15]*15
 
@@ -647,6 +768,8 @@ for line in lines:
     for w in linelist[1:]:
         d[w] = 1
     lwordlists[k] = d
+
+
 fh.close()
 #print('lwordlists', time.time() - start_time)   
 
@@ -658,6 +781,7 @@ for line in lines:
     l = line.split(" ")
     k = l[0]
     alphasetdict_0B[k] = l[1:]
+
 fh.close()
 
 alphasetdict_1B = {}        
@@ -668,7 +792,34 @@ for line in lines:
     l = line.split(" ")
     k = l[0]
     alphasetdict_1B[k] = l[1:]
+
 fh.close()
+
+##############################################
+##############################################
+##############################################
+
+print('party')
+##### TESTING ####
+rack = "ACE"
+row = ['.','.','.','.','.','.','.','.','.','.','E','.','S','.','.']
+anchorconstraints = [AZ] * 15
+anchorpoints = [False,False,True,False,False,False,False,False,False,True,False,True,False,False,False]
+
+numblanks = sum(1 for x in rack if x=='?')
+
+if numblanks == 0:
+    alphasetdict = alphasetdict_0B
+elif numblanks == 1:
+    alphasetdict = alphasetdict_1B 
+else:
+    alphasetdict = alphasetdict_1B     
+
+#print(genRowWords2(rack, row, anchorpoints, anchorconstraints))
+
+##############################################
+##############################################
+##############################################
 
 ##### Message Passing 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -683,7 +834,6 @@ print ('connected with' + addr[0] + ":" + str(addr[1]) )
 #if message['status']['moverequired'] == False:
 #   sys.exit() #In the future, this may be used for some pre-processing
     
-
 while True:
 
 ## PARSE MESSAGE
@@ -707,10 +857,12 @@ while True:
         continue
 
     startime = time.time()
+    scorediff = message["score"]["me"] - message["score"]["opponent"]
 
     boardstring = message["board"]
     rack = ''.join(message["rack"])
     numblanks = sum(1 for x in rack if x=='?')
+
 
     if numblanks == 0:
         alphasetdict = alphasetdict_0B
@@ -724,7 +876,7 @@ while True:
     board = [list(boardstring)[i:i+numcols] for i in range(0, numrows*numcols,numcols)]
 
     #print('***********')
-    hpossiblemoves = genAllWords(board, False)
+    hpossiblemoves = genAllWords(board, False, rack)
     #print(hpossiblemoves[0:9])
     #print('***********')
 
@@ -733,73 +885,93 @@ while True:
     #If it is the first move of the game, the symmetry makes it necessary to consider only one direction
     if numoccupied > 0:
         flippedboard = map(list, zip(*board))
-        vpossiblemoves = genAllWords(flippedboard, True) #Warning: Stuff will be overwritten here! We don't care, but beware!
-    #    print(vpossiblemoves[0:9])
-    #    print('***********')
+        vpossiblemoves = genAllWords(flippedboard, True, rack) #Warning: Stuff will be overwritten here! We don't care, but beware!
     else:
         vpossiblemoves = []
 
     allmoveslist = hpossiblemoves + vpossiblemoves
     #print('Total number of possible moves: ', len(allmoveslist))
-    #if 86 - numoccupied <= 0:
-        #perfewct playt
-    #else
-    featurevec1 = makefeatures_state(board, rack, message["score"]["me"] - message["score"]["opponent"])
 
-    movefeatures = {}
+    MOVES = allmoveslist
 
-    for i,move in enumerate(allmoveslist):
-        movescore = scoremove(move)[0]
-        allmoveslist[i]+=(movescore,)
-        #print(move)
-        
-        
-    allmoveslist.sort(key=lambda tup: tup[6], reverse=True)     
+    if False: #86 - numoccupied <= 0:
+        print('ENDGAME HAS BEGUN')
 
-    for i,move in enumerate(allmoveslist):
+        mytiles = list(rack)
+        boardtiles = [x for x in boardstring if x!='.']
+        boardtiles = [x if x in AZ else '?' for x in boardtiles]
 
-    # <modeling>
-        movefeatures[i] = featurevec1 + makefeatures_stateaction(board, rack, move[3], allmoveslist[i][6],featurevec1)
-        featurelist = ["currentScoreDifference", "numTilesLeftInBag", "numUnseenVowels", "numUnseenConsonants",  "numUnseenConsonantsMinusNumUnseenVowels", "numUnseenBlanks","numBlanksOnMyRack"] + ["moveScore", "proposedScoreDiff", "leave_length", "leave_numConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw"]
+        dictopponent = dict(Counter(fullbag) - Counter(boardtiles) - Counter(mytiles))
+        opptiles = ''.join(x*dictopponent[x] for x in dictopponent)
+        print(opptiles)
 
-        reducedfeaturevector =  [movefeatures[i][7], abs(movefeatures[i][10]), movefeatures[i][11], movefeatures[i][12], movefeatures[i][13]]
-
-        featurelist = ["moveScore", "leave_NumConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw"]
-
-
-        # w dot phi
-        effectivemovescore = sum([featureweights[j] * reducedfeaturevector[j] for j in range(len(reducedfeaturevector))])
-        
-        allmoveslist[i]+=((effectivemovescore,) + tuple(reducedfeaturevector)) # Appending features and predicted score
-
-    # </modeling>
 
         
-    allmoveslist.sort(key=lambda tup: tup[7], reverse=True) #7th item is the predicted Q value
-
-    if len(allmoveslist) > 0:
-        fullmove = allmoveslist[0]
-    #    print(fullmove)
-        featurevector = fullmove[8:]
-        featurelist = ["moveScore", "leave_NumConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw"]
-
-        with open(currentdir + '/datafile', 'a') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=featurelist)
-            writer.writerow({featurelist[f]:featurevector[f] for f in range(len(featurelist))})
-
-        row = str(fullmove[0] + 1)
-        col = AZ[fullmove[1]]
-        
-        gcgmove = ""
-        if fullmove[2] == 'H':
-            gcgmove = row + col + " " + fullmove[4]
-        else:
-            gcgmove = col + row + " " + fullmove[4]
+        for move in allmoveslist[0:5]:
+            movenode = Node(move, copy.deepcopy(board), mytiles, opptiles, scorediff, 1)
+            print(move)
+            print(evaluateMove(movenode, 1))
+            
     else:
-        gcgmove = "pass"
-    	
-    print("Sent: "+gcgmove)
-    conn.sendall(gcgmove)
-    endtime = time.time()
-    print("time consumed is " + str(endtime - startime))
-#print(time.time()-start_time)
+        # score according to our model, select best from the approximation
+
+        featurevec1 = makefeatures_state(board, rack, message["score"]["me"] - message["score"]["opponent"])
+
+        movefeatures = {}
+
+        for i,move in enumerate(allmoveslist):
+            move.score = scoremove(move, board)[0]
+            #print(move)
+            
+            
+        allmoveslist.sort(key=lambda m : m.score, reverse=True)     
+
+        for i,move in enumerate(allmoveslist):
+
+        # <modeling>
+            movefeatures[i] = featurevec1 + makefeatures_stateaction(board, rack, move.tileword, allmoveslist[i].score,featurevec1)
+            featurelist = ["currentScoreDifference", "numTilesLeftInBag", "numUnseenVowels", "numUnseenConsonants",  "numUnseenConsonantsMinusNumUnseenVowels", "numUnseenBlanks","numBlanksOnMyRack"] + ["moveScore", "proposedScoreDiff", "leave_length", "leave_numConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw"]
+
+            reducedfeaturevector =  [movefeatures[i][7], abs(movefeatures[i][10]), movefeatures[i][11], movefeatures[i][12], movefeatures[i][13]]
+
+            featurelist = ["moveScore", "leave_NumConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw"]
+
+
+            # w dot phi
+            effectivemovescore = sum([featureweights[j] * reducedfeaturevector[j] for j in range(len(reducedfeaturevector))])
+            
+            allmoveslist[i].features = ((effectivemovescore,) + tuple(reducedfeaturevector)) # Features and predicted score
+
+        # </modeling>
+
+            
+        allmoveslist.sort(key=lambda m: m.features[0], reverse=True) #0th item is the predicted Q value
+
+
+        if len(allmoveslist) > 0:
+            fullmove = allmoveslist[0]
+        #    print(fullmove)
+            featurevector = fullmove.features
+            featurelist = ["moveScore", "leave_NumConsonantsMinusVowels", "leave_numBlanks", "leave_bingoProbOnNextDraw", "leave_expectedNumberOfBingosOnNextDraw"]
+
+            row = str(fullmove.startrow + 1)
+            col = AZ[fullmove.startcol]
+            
+            gcgmove = ""
+            if fullmove.direction == 'H':
+                gcgmove = row + col + " " + fullmove.word
+            else:
+                gcgmove = col + row + " " + fullmove.word
+        else:
+            gcgmove = "pass"
+
+        movescore = fullmove.score #also = fullmove.features[1]
+        print("Sent: "+gcgmove+" ("+str(movescore)+")")
+        conn.sendall(gcgmove)
+        endtime = time.time()
+        print("time consumed is " + str(endtime - startime))
+
+
+
+
+
